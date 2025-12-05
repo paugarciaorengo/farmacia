@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: #000;
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ============================= */
+/*   MÁSCARA TIPO BIGIBAI        */
+/* ============================= */
+
+#background {
+  background: radial-gradient(circle at top, #064e3b 0, #020617 60%);
+  /* Si quieres, aquí podrías poner un fondo general */
+  /* background-image: url('/loquesea.webp'); */
+  /* background-size: cover;
+     background-position: center;
+     background-repeat: no-repeat; */
+}
+
+/* Animación: aumentar el tamaño de la máscara */
+@keyframes mask-reveal {
+  100% {
+    mask-size: 2000vh;
+    -webkit-mask-size: 2000vh;
+  }
+}
+
+#mask {
+  mask-image: url("/cross-mask.svg");
+  -webkit-mask-image: url("/cross-mask.svg");
+
+  mask-mode: luminance;
+  -webkit-mask-mode: luminance;
+
+  mask-position: center center;
+  -webkit-mask-position: center center;
+
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+
+  mask-size: 50px;
+  -webkit-mask-size: 50px;
+
+  overflow-y: auto;
+  position: fixed;
+  inset: 0;
+  background: var(--background);
+}
+
+
+/* Estado inicial: anima la máscara */
+#mask.animated {
+  animation: mask-reveal 2s forwards ease-in-out;
+}
+
+/* Cuando termina la animación: desbloqueamos */
+#mask.unlocked {
+  position: relative;
+  mask-size: 2000vh;
+  -webkit-mask-size: 2000vh;
+}

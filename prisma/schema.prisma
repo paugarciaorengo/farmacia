@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  PHARMACIST
+  STAFF
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String?
+  name         String?
+  role         Role      @default(CUSTOMER)
+  orders       Order[]
+  addresses    Address[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Category {
+  id       String     @id @default(cuid())
+  name     String
+  slug     String     @unique
+  parentId String?
+  parent   Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryToCategory")
+  products Product[]
+}
+
+model Product {
+  id   String  @id @default(cuid())
+  name String
+  slug String  @unique
+  sku  String  @unique
+  ean  String? @unique
+
+  farmaticCode String? @unique
+
+  description    String?
+  priceCents     Int
+  vatRate        Decimal     @db.Decimal(5, 2)
+  isPrescription Boolean     @default(false)
+  active         Boolean     @default(true)
+  categoryId     String?
+  category       Category?   @relation(fields: [categoryId], references: [id])
+  lots           StockLot[]
+  media          Media[]
+  orderItems     OrderItem[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model StockLot {
+  id        String    @id @default(cuid())
+  productId String
+  product   Product   @relation(fields: [productId], references: [id])
+  lotCode   String
+  expiresAt DateTime?
+  quantity  Int
+  reserved  Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([productId, lotCode])
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  userId     String?
+  user       User?       @relation(fields: [userId], references: [id])
+  status     OrderStatus @default(PENDING_PAYMENT)
+  items      OrderItem[]
+  totalCents Int
+  currency   String      @default("EUR")
+  paymentRef String?
+
+  shippingAddrId String?
+  shippingAddr   Address? @relation("OrderShippingAddress", fields: [shippingAddrId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id             String  @id @default(cuid())
+  orderId        String
+  order          Order   @relation(fields: [orderId], references: [id])
+  productId      String
+  product        Product @relation(fields: [productId], references: [id])
+  lotCode        String?
+  qty            Int
+  unitPriceCents Int
+  vatRate        Decimal @db.Decimal(5, 2)
+}
+
+model Address {
+  id       String  @id @default(cuid())
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id])
+  fullName String
+  line1    String
+  line2    String?
+  city     String
+  province String
+  postal   String
+  country  String  @default("ES")
+  phone    String
+
+  // back-relation: una dirección puede ser usada por muchos pedidos
+  ordersAsShipping Order[] @relation("OrderShippingAddress")
+}
+
+model Media {
+  id        String  @id @default(cuid())
+  productId String
+  url       String
+  alt       String?
+  position  Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id])
+}
