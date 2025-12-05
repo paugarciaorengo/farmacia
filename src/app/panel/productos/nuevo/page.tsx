@@ -21,68 +21,94 @@ export default async function NuevoProductoPage() {
     redirect("/catalogo");
   }
 
+  // 👇 Cargamos categorías para el selector
+  const categories = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+
   return (
-    <main className="p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Nuevo producto</h1>
+    <main className="mx-auto max-w-xl p-6">
+      <h1 className="mb-6 text-2xl font-bold">Nuevo producto</h1>
 
       <form
         action="/api/products"
         method="POST"
-        className="space-y-4 bg-neutral-900 p-6 rounded-xl border border-neutral-800"
+        className="space-y-4 rounded-xl border border-neutral-800 bg-neutral-900 p-6"
       >
         <div>
-          <label className="block mb-1 text-sm">Nombre del producto</label>
+          <label className="mb-1 block text-sm">Nombre del producto</label>
           <input
             type="text"
             name="name"
             required
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2"
           />
         </div>
 
         <div>
-          <label className="block mb-1 text-sm">SKU interno</label>
+          <label className="mb-1 block text-sm">SKU interno</label>
           <input
             type="text"
             name="sku"
             placeholder="PARA-650-TAB20"
             required
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2"
           />
           <p className="mt-1 text-[11px] text-neutral-500">
-            Código interno de tu catálogo (no tiene por qué coincidir con Farmatic).
+            Código interno de tu catálogo (no tiene por qué coincidir con
+            Farmatic).
           </p>
         </div>
 
         <div>
-          <label className="block mb-1 text-sm">Código Farmatic (opcional)</label>
+          <label className="mb-1 block text-sm">
+            Código Farmatic (opcional)
+          </label>
           <input
             type="text"
             name="farmaticCode"
             placeholder="Ej. código del ERP Farmatic"
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2"
           />
         </div>
 
+        {/* 👇 NUEVO: selector de categoría */}
         <div>
-          <label className="block mb-1 text-sm">Precio (€)</label>
+          <label className="mb-1 block text-sm">Categoría</label>
+          <select
+            name="categoryId"
+            defaultValue=""
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+          >
+            <option value="">Sin categoría</option>
+            {categories.map((cat: { id: string; name: string }) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm">Precio (€)</label>
           <input
             type="number"
             name="price"
             min="0"
             step="0.01"
             required
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2"
           />
         </div>
 
-        {/* NUEVO: tipo de IVA */}
+        {/* Tipo de IVA */}
         <div>
-          <label className="block mb-1 text-sm">IVA</label>
+          <label className="mb-1 block text-sm">IVA</label>
           <select
             name="vatRate"
             defaultValue="21"
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2"
           >
             <option value="4">4% (medicamentos muy reducidos)</option>
             <option value="10">10% (sanitario / farmacia)</option>
@@ -90,7 +116,7 @@ export default async function NuevoProductoPage() {
           </select>
         </div>
 
-        {/* NUEVO: ¿requiere receta? */}
+        {/* ¿requiere receta? */}
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -104,41 +130,43 @@ export default async function NuevoProductoPage() {
         </div>
 
         <div>
-          <label className="block mb-1 text-sm">Slug (URL)</label>
+          <label className="mb-1 block text-sm">Slug (URL)</label>
           <input
             type="text"
             name="slug"
             placeholder="paracetamol-650"
             required
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2"
           />
         </div>
 
         <div>
-          <label className="block mb-1 text-sm">URL de la imagen</label>
+          <label className="mb-1 block text-sm">URL de la imagen</label>
           <input
             type="text"
             name="imageUrl"
             placeholder="https://ejemplo.com/imagen.jpg"
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2"
           />
         </div>
 
         <div>
-          <label className="block mb-1 text-sm">Texto alternativo de la imagen</label>
+          <label className="mb-1 block text-sm">
+            Texto alternativo de la imagen
+          </label>
           <input
             type="text"
             name="imageAlt"
             placeholder="Ej. Imagen del envase del producto"
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2"
           />
         </div>
 
         <div>
-          <label className="block mb-1 text-sm">Activo</label>
+          <label className="mb-1 block text-sm">Activo</label>
           <select
             name="active"
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
+            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2"
           >
             <option value="true">Sí</option>
             <option value="false">No</option>
@@ -147,7 +175,7 @@ export default async function NuevoProductoPage() {
 
         <button
           type="submit"
-          className="w-full bg-emerald-500 text-black py-2 rounded font-semibold hover:bg-emerald-400"
+          className="w-full rounded bg-emerald-500 py-2 font-semibold text-black hover:bg-emerald-400"
         >
           Crear producto
         </button>

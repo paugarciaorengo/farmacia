@@ -1,4 +1,6 @@
 // src/app/catalogo/page.tsx
+import { prisma } from "@/src/lib/prisma";
+
 const base =
   process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
@@ -7,6 +9,7 @@ type CatalogPageProps = {
     search?: string;
     page?: string;
     noRx?: string;
+    categoryId?: string;
   }>;
 };
 
@@ -24,17 +27,24 @@ type ProductItem = {
 export default async function CatalogoPage({
   searchParams,
 }: CatalogPageProps) {
-  // en tu proyecto searchParams es una Promise
   const sp = await searchParams;
 
   const search = sp.search ?? "";
   const page = Number(sp.page ?? "1");
   const noRx = sp.noRx === "1" || sp.noRx === "true";
+  const categoryId = sp.categoryId ?? "";
+
+  // 👇 obtenemos las categorías para el selector
+  const categories = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 
   const qs = new URLSearchParams();
   if (search) qs.set("search", search);
   qs.set("page", page.toString());
   if (noRx) qs.set("noRx", "1");
+  if (categoryId) qs.set("categoryId", categoryId);
 
   const res = await fetch(`${base}/api/products?${qs.toString()}`, {
     cache: "no-store",
@@ -69,6 +79,7 @@ export default async function CatalogoPage({
     const sp2 = new URLSearchParams();
     if (search) sp2.set("search", search);
     if (noRx) sp2.set("noRx", "1");
+    if (categoryId) sp2.set("categoryId", categoryId);
     if (p !== 1) sp2.set("page", p.toString());
     const query = sp2.toString();
     return query ? `/catalogo?${query}` : "/catalogo";
@@ -83,17 +94,37 @@ export default async function CatalogoPage({
         method="GET"
         className="mb-6 flex flex-col gap-3 rounded-lg border border-neutral-800 bg-neutral-900 p-4 md:flex-row md:items-center md:justify-between"
       >
-        <div className="flex-1">
-          <label className="mb-1 block text-xs text-neutral-400">
-            Buscar por nombre
-          </label>
-          <input
-            type="text"
-            name="search"
-            defaultValue={search}
-            placeholder="paracetamol, ibuprofeno..."
-            className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
-          />
+        <div className="flex-1 space-y-2">
+          <div>
+            <label className="mb-1 block text-xs text-neutral-400">
+              Buscar por nombre
+            </label>
+            <input
+              type="text"
+              name="search"
+              defaultValue={search}
+              placeholder="paracetamol, ibuprofeno..."
+              className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-neutral-400">
+              Categoría
+            </label>
+            <select
+              name="categoryId"
+              defaultValue={categoryId}
+              className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+            >
+              <option value="">Todas las categorías</option>
+              {categories.map((cat: { id: string; name: string }) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="mt-2 flex items-center gap-3 md:mt-5">
@@ -125,7 +156,7 @@ export default async function CatalogoPage({
       ) : (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {items.map((p) => {
-            const cover = p.media?.[0]; // portada del catálogo
+            const cover = p.media?.[0];
 
             return (
               <a
@@ -133,7 +164,7 @@ export default async function CatalogoPage({
                 href={`/producto/${p.slug}`}
                 className="rounded-lg border border-neutral-800 bg-neutral-900 transition-shadow hover:border-emerald-500 hover:shadow-md"
               >
-                <div className="aspect-square overflow-hidden rounded-t-lg bg-neutral-950 flex items-center justify-center">
+                <div className="flex aspect-square items-center justify-center overflow-hidden rounded-t-lg bg-neutral-950">
                   {cover?.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -183,7 +214,7 @@ export default async function CatalogoPage({
         <div className="mt-6 flex items-center justify-center gap-4 text-xs">
           <a
             href={makePageUrl(Math.max(1, currentPage - 1))}
-            className={`rounded px-3 py-1 border ${
+            className={`rounded border px-3 py-1 ${
               currentPage === 1
                 ? "pointer-events-none border-neutral-800 text-neutral-600"
                 : "border-neutral-700 hover:border-emerald-500"
@@ -196,7 +227,7 @@ export default async function CatalogoPage({
           </span>
           <a
             href={makePageUrl(Math.min(totalPages, currentPage + 1))}
-            className={`rounded px-3 py-1 border ${
+            className={`rounded border px-3 py-1 ${
               currentPage === totalPages
                 ? "pointer-events-none border-neutral-800 text-neutral-600"
                 : "border-neutral-700 hover:border-emerald-500"

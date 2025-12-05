@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
 
 // 🔹 GET -> listado de productos para el catálogo y el panel
-// (con búsqueda, paginación y filtro sin receta)
+// (con búsqueda, paginación, filtro sin receta y por categoría)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("search") ?? "";
@@ -14,9 +14,12 @@ export async function GET(req: NextRequest) {
   const onlyNonPrescription =
     noRxParam === "1" || noRxParam === "true";
 
+  const categoryId = searchParams.get("categoryId") ?? "";
+
   const where: any = { active: true };
   if (q) where.name = { contains: q, mode: "insensitive" };
   if (onlyNonPrescription) where.isPrescription = false;
+  if (categoryId) where.categoryId = categoryId; // 👈 filtro por categoría
 
   const [items, total] = await Promise.all([
     prisma.product.findMany({
@@ -28,13 +31,11 @@ export async function GET(req: NextRequest) {
         priceCents: true,
         vatRate: true,
         isPrescription: true,
-        // Portada del catálogo: primera imagen según `position`
         media: {
           orderBy: { position: "asc" },
           take: 1,
           select: { url: true, alt: true },
         },
-        // Solo para calcular disponibilidad
         lots: { select: { quantity: true, reserved: true } },
       },
       take: pageSize,
@@ -68,7 +69,8 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// 🔸 POST -> crear producto nuevo
+// 🔸 POST -> crear producto nuevo (sin cambios)
+// src/app/api/products/route.ts  (POST)
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -84,6 +86,9 @@ export async function POST(req: NextRequest) {
 
     const imageUrl = form.get("imageUrl")?.toString() ?? "";
     const imageAlt = form.get("imageAlt")?.toString() ?? "";
+
+    // 👇 NUEVO: categoría opcional
+    const categoryId = form.get("categoryId")?.toString() ?? "";
 
     const price = parseFloat(priceStr);
     const vatRate = parseFloat(vatRateStr);
@@ -105,6 +110,8 @@ export async function POST(req: NextRequest) {
         vatRate,
         isPrescription,
         active,
+        // 👇 guardamos la categoría si viene
+        categoryId: categoryId || null,
         ...(imageUrl
           ? {
               media: {
@@ -130,3 +137,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

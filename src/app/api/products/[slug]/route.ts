@@ -75,6 +75,9 @@ export async function POST(req: Request, { params }: RouteContext) {
     const vatRateStr = form.get("vatRate")?.toString() ?? "21";
     const isPrescription = form.get("isPrescription") === "on";
 
+    // 👇 NUEVO: categoría opcional
+    const categoryId = form.get("categoryId")?.toString() ?? "";
+
     const price = parseFloat(priceStr);
     const vatRate = parseFloat(vatRateStr);
 
@@ -96,10 +99,13 @@ export async function POST(req: Request, { params }: RouteContext) {
         vatRate,
         isPrescription,
         active,
+        categoryId: categoryId || null, // 👈 aquí guardamos la categoría
       },
     });
 
-    return NextResponse.redirect(new URL("/panel/productos", req.url));
+    return NextResponse.redirect(
+      new URL("/panel/productos", req.url)
+    );
   } catch (err) {
     console.error("Error al actualizar producto:", err);
     return NextResponse.json(
@@ -108,3 +114,4 @@ export async function POST(req: Request, { params }: RouteContext) {
     );
   }
 }
+
