@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import MaskLayout from "./components/MaskLayout";
 import NavBar from "./components/NavBar"; 
+import CartSidebar from "@/src/features/cart/CartSidebar"; 
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +31,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <MaskLayout>
-          {/* 🔹 La NavBar forma parte del contenido que se revela con la máscara */}
+          {/* ✅ 2. Añadir el componente aquí para que esté disponible en todas las páginas */}
+          <CartSidebar /> 
+          
+          {/* La NavBar forma parte del contenido que se revela con la máscara */}
           <NavBar />
           <main>{children}</main>
         </MaskLayout>

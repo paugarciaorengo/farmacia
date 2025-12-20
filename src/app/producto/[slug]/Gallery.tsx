@@ -1,64 +1,55 @@
-// src/app/producto/[slug]/Gallery.tsx
-"use client";
+'use client'
 
-import { useState } from "react";
+import { useState } from 'react'
+import Image from 'next/image'
 
-type MediaItem = {
-  id: string;
-  url: string;
-  alt: string | null;
-  position: number;
-};
+type Media = {
+  id: string
+  url: string
+  alt: string | null
+}
 
-export default function Gallery({
-  media,
-  name,
-}: {
-  media: MediaItem[];
-  name: string;
-}) {
-  const [activeIndex, setActiveIndex] = useState(0);
+export default function Gallery({ media, name }: { media: Media[], name: string }) {
+  const [selectedImage, setSelectedImage] = useState(media[0]?.url)
 
-  if (!media || media.length === 0) {
-    return null;
-  }
+  if (!media || media.length === 0) return null
 
   return (
-    <section className="flex flex-col gap-4">
-      {/* Imagen principal */}
-      <div className="w-full rounded-xl border border-neutral-200 bg-white p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={media[activeIndex]?.url}
-          alt={media[activeIndex]?.alt ?? name}
-          className="max-h-[400px] w-full rounded-lg object-cover"
+    <div className="flex flex-col gap-4">
+      {/* Imagen Principal */}
+      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-slate-800 border border-slate-700 shadow-2xl">
+        <Image
+          src={selectedImage}
+          alt={name}
+          fill
+          className="object-cover"
+          priority
         />
       </div>
 
-      {/* Miniaturas */}
+      {/* Miniaturas (solo si hay más de 1) */}
       {media.length > 1 && (
-        <div className="flex gap-2">
-          {media.map((m, index) => (
+        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+          {media.map((item) => (
             <button
-              key={m.id}
-              type="button"
-              onClick={() => setActiveIndex(index)}
-              className={`rounded border p-1 ${
-                index === activeIndex
-                  ? "border-emerald-500"
-                  : "border-neutral-300"
+              key={item.id}
+              onClick={() => setSelectedImage(item.url)}
+              className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
+                selectedImage === item.url 
+                  ? 'border-emerald-500 shadow-lg shadow-emerald-500/20' 
+                  : 'border-slate-700 hover:border-slate-500'
               }`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={m.url}
-                alt={m.alt ?? ""}
-                className="h-16 w-16 rounded object-cover"
+              <Image
+                src={item.url}
+                alt={item.alt || name}
+                fill
+                className="object-cover"
               />
             </button>
           ))}
         </div>
       )}
-    </section>
-  );
+    </div>
+  )
 }
