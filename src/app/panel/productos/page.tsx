@@ -1,155 +1,181 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/src/auth"; // <--- Usamos Auth.js
+import Link from "next/link";
 import { prisma } from "@/src/lib/prisma";
+import { Plus, Pencil, Trash2, Package, Search } from "lucide-react";
+import { redirect } from "next/navigation";
+import { auth } from "@/src/auth";
+import { Prisma } from "@prisma/client"; // ✅ 1. Importamos Prisma
 
-type ProductRow = {
-  id: string;
-  name: string;
-  slug: string;
-  priceCents: number;
-  active: boolean;
-  createdAt: Date;
-};
+// ✅ 2. Definimos el tipo exacto que esperamos (Producto + Lotes)
+type ProductWithLots = Prisma.ProductGetPayload<{
+  include: { lots: true };
+}>;
 
-export default async function ProductosPanelPage() {
-  // 🔐 1. Protección: obtenemos sesión
+export default async function ProductosPanelPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string; page?: string }>;
+}) {
   const session = await auth();
+  if (!session) redirect("/login");
 
-  // Si no hay sesión, al login
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  const { search, page } = await searchParams;
+  const currentPage = Number(page) || 1;
+  const pageSize = 10;
 
-  // 2. Buscamos el usuario en la BD para verificar permisos reales
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, role: true },
-  });
+  const where = search
+    ? {
+        OR: [
+          { name: { contains: search } }, 
+          { farmaticCode: { contains: search } },
+        ],
+      }
+    : {};
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  // 👇 3. Bloqueamos acceso a CUSTOMER
-  if (user.role !== "ADMIN" && user.role !== "PHARMACIST") {
-    redirect("/catalogo");
-  }
-
-  // 🗃️ 4. Cargamos productos desde Prisma
-  const products: ProductRow[] = await prisma.product.findMany({
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      priceCents: true,
-      active: true,
-      createdAt: true,
+  const products = await prisma.product.findMany({
+    where,
+    take: pageSize,
+    skip: (currentPage - 1) * pageSize,
+    orderBy: { updatedAt: "desc" },
+    include: {
+      lots: true,
     },
   });
 
-  return (
-    <main className="p-6">
-      {/* Cabecera con botón + */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Gestión de productos</h1>
-          <p className="text-xs text-neutral-400 mt-1">
-            {products.length} productos en el catálogo.
-          </p>
-        </div>
+  const totalProducts = await prisma.product.count({ where });
+  const totalPages = Math.ceil(totalProducts / pageSize);
 
-        <a
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Inventario</h1>
+          <p className="text-slate-400 text-sm">Gestiona tu catálogo y stock</p>
+        </div>
+        <Link
           href="/panel/productos/nuevo"
-          className="rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
+          className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-medium shadow-lg shadow-emerald-900/20"
         >
-          + Nuevo producto
-        </a>
+          <Plus size={18} />
+          Nuevo Producto
+        </Link>
+      </div>
+
+      {/* Buscador */}
+      <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <form className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+          <input
+            name="search"
+            defaultValue={search}
+            placeholder="Buscar por nombre o código..."
+            className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white focus:border-emerald-500 outline-none"
+          />
+        </form>
       </div>
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-xl border border-neutral-800 bg-neutral-900">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-900/80 border-b border-neutral-800">
-            <tr>
-              <th className="px-4 py-2 text-left font-semibold">Nombre</th>
-              <th className="px-4 py-2 text-left font-semibold">Slug</th>
-              <th className="px-4 py-2 text-right font-semibold">Precio</th>
-              <th className="px-4 py-2 text-center font-semibold">Estado</th>
-              <th className="px-4 py-2 text-right font-semibold">Creado</th>
-              <th className="px-4 py-2 text-right font-semibold">Acciones</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {products.length === 0 ? (
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-950 text-slate-400 uppercase text-xs font-semibold">
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-6 text-center text-neutral-400"
-                >
-                  No hay productos en el sistema.
-                </td>
+                <th className="px-6 py-4">Producto</th>
+                <th className="px-6 py-4 text-center">Código</th>
+                <th className="px-6 py-4 text-right">Precio</th>
+                <th className="px-6 py-4 text-center">Stock Total</th>
+                <th className="px-6 py-4 text-right">Acciones</th>
               </tr>
-            ) : (
-              products.map((p: ProductRow) => (
-                <tr
-                  key={p.id}
-                  className="border-t border-neutral-800 hover:bg-neutral-800/60"
-                >
-                  <td className="px-4 py-2">{p.name}</td>
-                  <td className="px-4 py-2 text-xs text-neutral-400">
-                    {p.slug}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {(p.priceCents / 100).toFixed(2)} €
-                  </td>
-                  <td className="px-4 py-2 text-center">
-                    <span
-                      className={
-                        p.active
-                          ? "inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300"
-                          : "inline-flex rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-medium text-red-300"
-                      }
-                    >
-                      {p.active ? "Activo" : "Inactivo"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right text-xs text-neutral-400">
-                    {new Date(p.createdAt).toLocaleDateString("es-ES")}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <a
-                      href={`/producto/${p.slug}`}
-                      className="text-xs text-emerald-400 hover:underline mr-3"
-                    >
-                      Ver
-                    </a>
-                    <a
-                      href={`/panel/productos/${p.slug}/editar`}
-                      className="text-xs text-neutral-300 hover:text-white mr-3"
-                    >
-                      Editar
-                    </a>
-                    <form
-                      action={`/api/products/${p.slug}/delete`}
-                      method="POST"
-                      className="inline"
-                    >
-                      <button
-                        type="submit"
-                        className="text-xs text-red-400 hover:text-red-300"
-                      >
-                        Eliminar
-                      </button>
-                    </form>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {products.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                    No se encontraron productos.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                // ✅ 3. Tipamos 'product' explícitamente en el map
+                products.map((product: ProductWithLots) => {
+                  
+                  // ✅ 4. Tipamos 'acc' y 'lot' en el reduce
+                  const totalStock = product.lots.reduce((acc: number, lot) => acc + lot.quantity, 0);
+                  
+                  const isLowStock = totalStock < 5;
+
+                  return (
+                    <tr key={product.id} className="hover:bg-slate-800/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-white">{product.name}</div>
+                        <div className="text-xs text-slate-500">{product.slug}</div>
+                      </td>
+                      <td className="px-6 py-4 text-center font-mono text-slate-400">
+                        {product.farmaticCode || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-right font-medium text-emerald-400">
+                        {(product.priceCents / 100).toFixed(2)}€
+                      </td>
+                      
+                      <td className="px-6 py-4 text-center">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            totalStock === 0
+                              ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                              : isLowStock
+                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                              : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          }`}
+                        >
+                          {totalStock} uds.
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/panel/productos/${product.slug}/stock`}
+                            className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                            title="Gestionar Stock y Lotes"
+                          >
+                            <Package size={18} />
+                          </Link>
+
+                          <Link
+                            href={`/panel/productos/${product.slug}/editar`}
+                            className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                            title="Editar Datos"
+                          >
+                            <Pencil size={18} />
+                          </Link>
+
+                          <button className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </main>
+
+      <div className="flex justify-center gap-2">
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+          <a
+            key={p}
+            href={`/panel/productos?page=${p}${search ? `&search=${search}` : ""}`}
+            className={`px-3 py-1 rounded-md text-sm ${
+              p === currentPage
+                ? "bg-emerald-600 text-white"
+                : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+            }`}
+          >
+            {p}
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }

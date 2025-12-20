@@ -166,13 +166,6 @@ export default async function EditarProductoPage({ params }: EditPageProps) {
           </a>
 
           <Link
-            href={`/panel/productos/${product.slug}/stock`}
-            className="inline-flex items-center rounded border border-emerald-500/60 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10"
-          >
-            Gestionar stock / lotes
-          </Link>
-
-          <Link
            href={`/panel/productos/${product.slug}/imagenes`}
            className="inline-flex items-center rounded border border-sky-500/60 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-500/10"
           >
