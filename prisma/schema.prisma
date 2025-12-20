@@ -68,18 +68,24 @@ model Product {
   updatedAt      DateTime    @updatedAt
 }
 
+// prisma/schema.prisma
+
 model StockLot {
   id        String    @id @default(cuid())
   productId String
   product   Product   @relation(fields: [productId], references: [id])
+  
   lotCode   String
-  expiresAt DateTime?
+  expiresAt DateTime  // <--- CAMBIO: Ahora es obligatorio. No podemos vender sin saber cuándo caduca.
   quantity  Int
   reserved  Int       @default(0)
+  
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@unique([productId, lotCode])
+  // Añadimos un índice para consultas rápidas de "qué va a caducar pronto"
+  @@index([expiresAt]) 
 }
 
 model Order {

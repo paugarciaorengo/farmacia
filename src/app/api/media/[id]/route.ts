@@ -1,8 +1,7 @@
 // src/app/api/media/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/src/lib/prisma";
-import { verifyAuthToken } from "@/src/lib/auth";
+import { auth } from "@/src/auth"; // ✅ Importamos Auth.js
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -12,20 +11,16 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const { id } = await params;
 
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value ?? null;
-
-    if (!token) {
+    // 🔐 1. Autenticación con Auth.js
+    const session = await auth();
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "Token no válido" }, { status: 401 });
-    }
-
+    // 🔐 2. Verificar Rol en BD
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { id: session.user.id },
       select: { id: true, role: true },
     });
 
@@ -33,9 +28,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
+    // 📥 3. Procesar datos del formulario
     const formData = await req.formData();
     const action = String(formData.get("_action") ?? "update");
 
+    // Buscamos la imagen para saber a qué producto pertenece (para el redirect)
     const media = await prisma.media.findUnique({
       where: { id },
       select: { id: true, productId: true },
@@ -53,6 +50,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       select: { slug: true },
     });
 
+    // ⚡ 4. Ejecutar acción
     if (action === "delete") {
       // 🗑 Eliminar imagen
       await prisma.media.delete({ where: { id } });
@@ -87,11 +85,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       });
     }
 
+    // 🔄 Redirect inteligente
     const redirectPath = product
       ? `/panel/productos/${product.slug}/imagenes`
       : "/panel/productos";
 
     return NextResponse.redirect(new URL(redirectPath, req.url));
+
   } catch (err) {
     console.error("Error procesando imagen:", err);
     return NextResponse.json(

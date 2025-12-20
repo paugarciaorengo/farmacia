@@ -1,7 +1,5 @@
-// src/app/panel/productos/page.tsx
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyAuthToken } from "@/src/lib/auth";
+import { auth } from "@/src/auth"; // <--- Usamos Auth.js
 import { prisma } from "@/src/lib/prisma";
 
 type ProductRow = {
@@ -14,22 +12,17 @@ type ProductRow = {
 };
 
 export default async function ProductosPanelPage() {
-  // 🔐 Protección: solo usuarios logueados
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value ?? null;
+  // 🔐 1. Protección: obtenemos sesión
+  const session = await auth();
 
-  if (!token) {
+  // Si no hay sesión, al login
+  if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const payload = verifyAuthToken(token);
-  if (!payload?.userId) {
-    redirect("/login");
-  }
-
-  // buscamos el usuario
+  // 2. Buscamos el usuario en la BD para verificar permisos reales
   const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: session.user.id },
     select: { id: true, role: true },
   });
 
@@ -37,12 +30,12 @@ export default async function ProductosPanelPage() {
     redirect("/login");
   }
 
-  // 👇 bloqueamos acceso a CUSTOMER
+  // 👇 3. Bloqueamos acceso a CUSTOMER
   if (user.role !== "ADMIN" && user.role !== "PHARMACIST") {
     redirect("/catalogo");
   }
 
-  // 🗃️ Cargamos productos desde Prisma
+  // 🗃️ 4. Cargamos productos desde Prisma
   const products: ProductRow[] = await prisma.product.findMany({
     orderBy: { createdAt: "desc" },
     select: {

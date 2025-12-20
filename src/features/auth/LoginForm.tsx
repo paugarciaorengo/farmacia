@@ -2,105 +2,79 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 
-export default function LoginPage() {
+export default function LoginForm() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
+    setError('')
     setLoading(true)
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
       })
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError(data.error ?? 'Error al iniciar sesión')
-        return
-      }
-
-      const data = await res.json().catch(() => ({}));
-      const role = data.user?.role ?? "CUSTOMER";
-
-      if (role === "ADMIN" || role === "PHARMACIST") {
-        router.push("/panel");
+      if (result?.error) {
+        setError('Credenciales incorrectas')
+        setLoading(false)
       } else {
-        router.push("/catalogo");
+        // ✅ CAMBIO CLAVE: Usamos window.location.href en lugar de router.push
+        // Esto fuerza una recarga completa para asegurar que el NavBar detecte la sesión.
+        router.refresh() // Por si acaso
+        window.location.href = '/panel' 
       }
     } catch (err) {
-      console.error(err)
-      setError('Error de red contactando con el servidor')
-    } finally {
+      setError('Ocurrió un error inesperado')
       setLoading(false)
     }
   }
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-xl bg-neutral-900 p-6 shadow-lg">
-        <h1 className="mb-4 text-2xl font-bold">Acceso personal farmacia</h1>
-
-        {error && (
-          <p className="mb-3 rounded bg-red-900/50 px-3 py-2 text-sm text-red-200">
-            {error}
-          </p>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm text-neutral-200">
-              Correo electrónico
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-emerald-400"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm text-neutral-200">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-emerald-400"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-2 w-full rounded bg-emerald-500 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:opacity-60"
-          >
-            {loading ? 'Accediendo...' : 'Entrar'}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-xs text-neutral-400">
-          ¿Aún no tienes cuenta?{' '}
-          <a href="/register" className="text-emerald-400 hover:underline">
-            Registrarse
-          </a>
-        </p>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-sm">
+          {error}
+        </div>
+      )}
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Email</label>
+        <input
+          type="email"
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2 text-black"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
       </div>
-    </main>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Contraseña</label>
+        <input
+          type="password"
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2 text-black"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
+      >
+        {loading ? 'Entrando...' : 'Iniciar Sesión'}
+      </button>
+    </form>
   )
 }

@@ -1,18 +1,22 @@
 // src/app/api/products/[slug]/lots/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/src/lib/prisma";
-import { verifyAuthToken } from "@/src/lib/auth";
+import { auth } from "@/src/auth"; // ✅ Importamos Auth.js
 
 type RouteContext = {
-  // 👈 en tu setup, params viene como Promise
   params: Promise<{ slug: string }>;
 };
 
 // 📌 GET → listar lotes de un producto
+// 🛡️ MEJORA: He añadido protección aquí. Los detalles de lotes son internos.
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  // 👈 OBLIGATORIO hacer await
   const { slug } = await params;
+
+  // 1. Verificación de seguridad
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
 
   try {
     const product = await prisma.product.findUnique({
@@ -22,7 +26,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         name: true,
         slug: true,
         lots: {
-          orderBy: { expiresAt: "asc" },
+          orderBy: { expiresAt: "asc" }, // Prioridad a lo que caduca antes (FEFO)
           select: {
             id: true,
             lotCode: true,
@@ -62,37 +66,33 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
 // 📌 POST → crear un nuevo lote para un producto
 export async function POST(req: NextRequest, { params }: RouteContext) {
-  // 👈 OBLIGATORIO hacer await
   const { slug } = await params;
 
   try {
-    // 🔐 Autenticación básica por cookie + rol
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value ?? null;
-
-    if (!token) {
+    // 🔐 1. Autenticación con Auth.js
+    const session = await auth();
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "Token no válido" }, { status: 401 });
-    }
-
+    // 🔐 2. Verificar Rol (BD)
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: { id: true, role: true },
+      where: { id: session.user.id },
+      select: { role: true },
     });
 
     if (!user || (user.role !== "ADMIN" && user.role !== "PHARMACIST")) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
+    // 📥 3. Recibir datos
     const formData = await req.formData();
     const lotCode = String(formData.get("lotCode") ?? "").trim();
     const quantityRaw = String(formData.get("quantity") ?? "").trim();
     const expiresAtRaw = String(formData.get("expiresAt") ?? "").trim();
 
+    // Validaciones básicas
     if (!lotCode) {
       return NextResponse.json(
         { error: "El código de lote es obligatorio" },
@@ -108,6 +108,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       );
     }
 
+    // Validar producto
     const product = await prisma.product.findUnique({
       where: { slug },
       select: { id: true, slug: true },
@@ -120,41 +121,44 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       );
     }
 
-    let expiresAt: Date | null = null;
-    if (expiresAtRaw) {
-      const parsed = new Date(expiresAtRaw);
-      if (!Number.isNaN(parsed.getTime())) {
-        expiresAt = parsed;
-      } else {
-        return NextResponse.json(
-          { error: "Fecha de caducidad no válida" },
-          { status: 400 }
-        );
-      }
+    // 📅 MEJORA CRÍTICA: Validación estricta de fecha (ya no es opcional)
+    if (!expiresAtRaw) {
+      return NextResponse.json(
+        { error: "La fecha de caducidad es obligatoria" },
+        { status: 400 }
+      );
     }
 
+    const expiresAt = new Date(expiresAtRaw);
+    if (Number.isNaN(expiresAt.getTime())) {
+      return NextResponse.json(
+        { error: "Formato de fecha inválido" },
+        { status: 400 }
+      );
+    }
+
+    // 💾 Guardar en BD
     await prisma.stockLot.create({
       data: {
         productId: product.id,
         lotCode,
         quantity,
-        expiresAt,
+        expiresAt, // Ahora pasamos la fecha obligatoria
       },
     });
 
-    // Volvemos a la pantalla de stock del producto
+    // 🔄 Redirección al panel
     return NextResponse.redirect(
       new URL(`/panel/productos/${product.slug}/stock`, req.url)
     );
+
   } catch (err: any) {
     console.error("Error al crear lote:", err);
 
-    // Error por UNIQUE (productId + lotCode)
+    // Error de duplicado (Unique Constraint)
     if (err?.code === "P2002") {
       return NextResponse.json(
-        {
-          error: "Ya existe un lote con ese código para este producto.",
-        },
+        { error: "Ya existe un lote con ese código para este producto." },
         { status: 400 }
       );
     }

@@ -1,23 +1,19 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { verifyAuthToken } from '@/src/lib/auth'
+import { auth } from '@/src/auth' // <--- Usamos el nuevo sistema de Auth
 import { prisma } from '@/src/lib/prisma'
 
 export default async function PanelPage() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('auth_token')?.value ?? null
+  // 1. Obtenemos la sesión
+  const session = await auth()
 
-  if (!token) {
+  // 2. Si no hay usuario logueado, fuera
+  if (!session?.user?.id) {
     redirect('/login')
   }
 
-  const payload = verifyAuthToken(token)
-  if (!payload?.userId) {
-    redirect('/login')
-  }
-
+  // 3. Buscamos al usuario en la BD para confirmar su rol real
   const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: session.user.id },
     select: {
       id: true,
       email: true,
@@ -26,13 +22,15 @@ export default async function PanelPage() {
     },
   })
 
+  // Seguridad extra: si el usuario fue borrado de la BD pero tiene cookie
   if (!user) {
     redirect('/login')
   }
 
+  // 4. Protección de Rol (Solo Admin y Farmacéuticos)
   if (user.role !== 'ADMIN' && user.role !== 'PHARMACIST') {
-  redirect('/catalogo');
-}
+    redirect('/catalogo')
+  }
 
   return (
     <main className="p-6">

@@ -1,7 +1,6 @@
 // src/app/panel/productos/[slug]/imagenes/page.tsx
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyAuthToken } from "@/src/lib/auth";
+import { auth } from "@/src/auth"; // ✅ Importamos Auth.js
 import { prisma } from "@/src/lib/prisma";
 
 type ImagesPageProps = {
@@ -13,15 +12,17 @@ export default async function ImagenesProductoPage({
 }: ImagesPageProps) {
   const { slug } = await params;
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value ?? null;
+  // 🔐 1. Autenticación con Auth.js
+  const session = await auth();
 
-  if (!token) redirect("/login");
-  const payload = verifyAuthToken(token);
-  if (!payload?.userId) redirect("/login");
+  // Si no hay sesión, redirigir al login
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
 
+  // 🔐 2. Verificar Rol en BD
   const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: session.user.id },
     select: { id: true, name: true, email: true, role: true },
   });
 
@@ -29,6 +30,7 @@ export default async function ImagenesProductoPage({
     redirect("/");
   }
 
+  // 🔎 3. Cargar datos del producto
   const product = await prisma.product.findUnique({
     where: { slug },
     select: {

@@ -21,28 +21,3 @@ export async function verifyPassword(password: string, hash: string) {
 export interface AuthPayload extends JwtPayload {
   userId: string
 }
-
-export function signAuthToken(payload: { userId: string }): string {
-  // AUTH_SECRET ahora es string (no undefined)
-  return jwt.sign(payload, AUTH_SECRET, { expiresIn: '7d' })
-}
-
-export function verifyAuthToken(token: string): { userId: string } | null {
-  try {
-    const decoded = jwt.verify(token, AUTH_SECRET) as AuthPayload | string
-
-    // jwt.verify puede devolver string o JwtPayload → comprobamos
-    if (!decoded || typeof decoded === 'string') {
-      return null
-    }
-
-    if (!decoded.userId) {
-      return null
-    }
-
-    return { userId: decoded.userId }
-  } catch (err) {
-    console.error('Error verifying token:', err)
-    return null
-  }
-}

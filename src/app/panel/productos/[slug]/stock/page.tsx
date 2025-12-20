@@ -1,7 +1,6 @@
 // src/app/panel/productos/[slug]/stock/page.tsx
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyAuthToken } from "@/src/lib/auth";
+import { auth } from "@/src/auth"; // ✅ Importamos Auth.js
 import { prisma } from "@/src/lib/prisma";
 
 type StockPageProps = {
@@ -11,16 +10,17 @@ type StockPageProps = {
 export default async function StockProductoPage({ params }: StockPageProps) {
   const { slug } = await params;
 
-  // 🔐 Autenticación + rol
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value ?? null;
+  // 🔐 1. Autenticación con Auth.js
+  const session = await auth();
 
-  if (!token) redirect("/login");
-  const payload = verifyAuthToken(token);
-  if (!payload?.userId) redirect("/login");
+  // Si no hay sesión, al login
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
 
+  // 🔐 2. Verificar Rol en BD
   const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: session.user.id },
     select: { id: true, name: true, email: true, role: true },
   });
 
@@ -28,6 +28,7 @@ export default async function StockProductoPage({ params }: StockPageProps) {
     redirect("/");
   }
 
+  // 🔎 3. Cargar datos del producto y sus lotes
   const product = await prisma.product.findUnique({
     where: { slug },
     select: {
@@ -40,7 +41,7 @@ export default async function StockProductoPage({ params }: StockPageProps) {
       vatRate: true,
       isPrescription: true,
       lots: {
-        orderBy: { expiresAt: "asc" },
+        orderBy: { expiresAt: "asc" }, // Ordenar por caducidad (FEFO)
         select: {
           id: true,
           lotCode: true,
@@ -58,6 +59,7 @@ export default async function StockProductoPage({ params }: StockPageProps) {
     redirect("/panel/productos");
   }
 
+  // Cálculos de stock
   const totalQuantity = product.lots.reduce(
     (sum: number, lot: any) => sum + lot.quantity,
     0
@@ -154,6 +156,7 @@ export default async function StockProductoPage({ params }: StockPageProps) {
               id="expiresAt"
               name="expiresAt"
               type="date"
+              required // ✅ AÑADIDO: Ahora es obligatorio en BD
               className="rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-emerald-500"
             />
           </div>
@@ -221,10 +224,6 @@ export default async function StockProductoPage({ params }: StockPageProps) {
                 product.lots.map((lot: any) => {
                   const available = lot.quantity - lot.reserved;
 
-                  const expiresLabel = lot.expiresAt
-                    ? new Date(lot.expiresAt).toLocaleDateString("es-ES")
-                    : "—";
-
                   const dateInputValue = lot.expiresAt
                     ? new Date(lot.expiresAt).toISOString().slice(0, 10)
                     : "";
@@ -249,14 +248,21 @@ export default async function StockProductoPage({ params }: StockPageProps) {
                       {/* Caducidad editable */}
                       <td className="px-3 py-2 text-xs">
                         <div className="flex flex-col gap-1">
-                          
                           <input
                             form={formId}
                             type="date"
                             name="expiresAt"
                             defaultValue={dateInputValue}
-                            className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-[11px] outline-none focus:border-emerald-500"
+                            required // ✅ AÑADIDO: Obligatorio al editar también
+                            className={`rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-[11px] outline-none focus:border-emerald-500 ${
+                              isExpired ? "text-red-400 border-red-900" : ""
+                            }`}
                           />
+                          {isExpired && (
+                            <span className="text-[10px] text-red-500 font-bold">
+                              CADUCADO
+                            </span>
+                          )}
                         </div>
                       </td>
 

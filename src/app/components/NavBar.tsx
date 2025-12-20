@@ -1,123 +1,53 @@
-'use client'
-
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { auth } from '@/src/auth'
+import UserMenu from '@/src/features/auth/userMenu'
+import NavLinks from './NavLinks' // Importamos el componente de enlaces
 
-interface UserInfo {
-  id: string
-  email: string
-  name: string | null
-  role: string
-}
-
-const links = [
-  { href: '/', label: 'Inicio' },
-  { href: '/catalogo', label: 'Catálogo' },
-]
-
-export default function NavBar() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const [user, setUser] = useState<UserInfo | null>(null)
-  const [checking, setChecking] = useState(true)
-
-  // Al montar, consultamos /api/auth/me
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/auth/me', {
-          method: 'GET',
-          credentials: 'include',
-        })
-        const data = await res.json()
-        if (data.loggedIn && data.user) {
-          setUser(data.user)
-        } else {
-          setUser(null)
-        }
-      } catch (e) {
-        console.error(e)
-        setUser(null)
-      } finally {
-        setChecking(false)
-      }
-    }
-
-    checkAuth()
-  }, [])
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      })
-      setUser(null)
-      router.push('/login')
-    } catch (e) {
-      console.error(e)
-    }
-  }
+export default async function NavBar() {
+  // 🔐 Obtenemos sesión al instante en el servidor
+  const session = await auth()
+  const user = session?.user
 
   return (
-    <header className="h-16 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur flex items-center px-6">
-      <div className="flex-1 font-semibold">
-        <Link href="/">Farmacia del Carmel</Link>
+    <header className="h-16 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur flex items-center px-6 justify-between">
+      {/* 1. Logo */}
+      <div className="font-semibold text-lg">
+        <Link href="/" className="hover:text-emerald-400 transition-colors">
+          Farmacia del Carmel
+        </Link>
       </div>
 
-      <nav className="flex items-center gap-4 text-sm">
-        {links.map(link => {
-          const active = pathname === link.href
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={
-                active
-                  ? 'text-emerald-400 font-medium'
-                  : 'text-neutral-300 hover:text-white'
-              }
-            >
-              {link.label}
-            </Link>
-          )
-        })}
+      {/* 2. Enlaces de navegación (Componente Cliente) */}
+      <div className="mx-6 hidden md:block">
+        <NavLinks />
+      </div>
 
-        {/* Separador */}
-        <span className="mx-2 h-5 w-px bg-neutral-700" />
+      {/* 3. Zona de Usuario */}
+      <div className="flex items-center gap-4 text-sm">
+        {/* Separador visual */}
+        <span className="h-5 w-px bg-neutral-700 hidden md:block" />
 
-        {checking ? (
-          <span className="text-xs text-neutral-400">Comprobando...</span>
-        ) : user ? (
-          <>
-            <span className="text-xs text-neutral-300">
-              {user.name ?? user.email}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="rounded bg-neutral-800 px-3 py-1 text-xs hover:bg-neutral-700"
-            >
-              Cerrar sesión
-            </button>
-          </>
+        {user ? (
+          // ✅ Si hay usuario: mostramos el Menú Desplegable
+          <UserMenu user={user} />
         ) : (
-          <>
+          // ❌ Si no hay usuario: botones de Login/Registro
+          <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="text-neutral-300 hover:text-white text-xs"
+              className="text-neutral-300 hover:text-white text-xs transition-colors"
             >
               Iniciar sesión
             </Link>
             <Link
               href="/register"
-              className="rounded bg-emerald-500 px-3 py-1 text-xs font-semibold text-black hover:bg-emerald-400"
+              className="rounded bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 transition-colors"
             >
               Registrarse
             </Link>
-          </>
+          </div>
         )}
-      </nav>
+      </div>
     </header>
   )
 }

@@ -1,22 +1,23 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyAuthToken } from "@/src/lib/auth";
+import { auth } from "@/src/auth"; // <--- 1. Importamos la nueva función auth
 import { prisma } from "@/src/lib/prisma";
 
 export default async function NuevoProductoPage() {
-  // 🔐 Proteger ruta
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value ?? null;
+  // 🔐 2. Proteger ruta usando Auth.js
+  const session = await auth();
 
-  if (!token) redirect("/login");
-  const payload = verifyAuthToken(token);
-  if (!payload?.userId) redirect("/login");
+  // Si no hay sesión, mandamos al login
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
 
+  // 3. Verificamos el rol consultando la BD (Más seguro)
   const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: session.user.id }, // Usamos el ID de la sesión
     select: { role: true },
   });
 
+  // Si no es admin ni farmacéutico, fuera
   if (!user || (user.role !== "ADMIN" && user.role !== "PHARMACIST")) {
     redirect("/catalogo");
   }

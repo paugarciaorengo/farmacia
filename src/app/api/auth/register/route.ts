@@ -1,65 +1,39 @@
+// src/app/api/auth/register/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/prisma'
-import { hashPassword, signAuthToken } from '@/src/lib/auth'
+import { hashPassword } from '@/src/lib/auth' // Importamos desde tu lib limpia
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const { email, password, name } = body
+    const { email, password, name } = await req.json()
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email y contraseña son obligatorios' },
-        { status: 400 }
-      )
+    if (!email || !password || !name) {
+      return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
     }
 
+    // Comprobar si existe
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
-      return NextResponse.json(
-        { error: 'Ya existe un usuario con ese email' },
-        { status: 409 }
-      )
+      return NextResponse.json({ error: 'El usuario ya existe' }, { status: 400 })
     }
 
-    const passwordHash = await hashPassword(password)
-
-    const user = await prisma.user.create({
+    // Crear usuario
+    const hashedPassword = await hashPassword(password)
+    await prisma.user.create({
       data: {
         email,
-        passwordHash,
         name,
-        // role: 'CUSTOMER' // o lo que quieras por defecto
+        passwordHash: hashedPassword,
+        role: 'CUSTOMER',
       },
     })
 
-    const token = signAuthToken({ userId: user.id })
+    // IMPORTANTE: Ya no devolvemos token ni seteamos cookies aquí.
+    // El frontend redirigirá al usuario a /login tras el registro exitoso.
+    return NextResponse.json({ ok: true })
 
-    const res = NextResponse.json({
-      ok: true,
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-    })
-
-    res.cookies.set('auth_token', token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 días
-    })
-
-    return res
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json(
-      { error: 'Error al registrar el usuario' },
-      { status: 500 }
-    )
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

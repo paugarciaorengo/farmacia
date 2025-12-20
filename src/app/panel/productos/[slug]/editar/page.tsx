@@ -1,9 +1,9 @@
-import { cookies } from "next/headers";
+// src/app/panel/productos/[slug]/editar/page.tsx
+
 import { redirect } from "next/navigation";
-import { verifyAuthToken } from "@/src/lib/auth";
+import { auth } from "@/src/auth"; // ✅ Importamos Auth.js
 import { prisma } from "@/src/lib/prisma";
 import Link from "next/link";
-
 
 type EditPageProps = {
   params: Promise<{ slug: string }>;
@@ -12,16 +12,17 @@ type EditPageProps = {
 export default async function EditarProductoPage({ params }: EditPageProps) {
   const { slug } = await params;
 
-  // 🔐 Autenticación + rol
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value ?? null;
+  // 🔐 1. Autenticación con Auth.js
+  const session = await auth();
 
-  if (!token) redirect("/login");
-  const payload = verifyAuthToken(token);
-  if (!payload?.userId) redirect("/login");
+  // Si no hay sesión, redirigir al login
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
 
+  // 🔐 2. Verificar Rol en BD
   const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: session.user.id },
     select: { role: true },
   });
 
@@ -29,7 +30,7 @@ export default async function EditarProductoPage({ params }: EditPageProps) {
     redirect("/catalogo");
   }
 
-  // 🔎 Cargamos el producto por slug
+  // 🔎 3. Cargamos el producto por slug
   const product = await prisma.product.findUnique({
     where: { slug },
     select: {
@@ -174,9 +175,9 @@ export default async function EditarProductoPage({ params }: EditPageProps) {
           <Link
            href={`/panel/productos/${product.slug}/imagenes`}
            className="inline-flex items-center rounded border border-sky-500/60 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-500/10"
-         >
-           Gestionar imágenes
-         </Link>
+          >
+            Gestionar imágenes
+          </Link>
 
           <button
             type="submit"

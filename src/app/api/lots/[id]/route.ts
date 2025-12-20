@@ -1,11 +1,9 @@
 // src/app/api/lots/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/src/lib/prisma";
-import { verifyAuthToken } from "@/src/lib/auth";
+import { auth } from "@/src/auth"; // ✅ Importamos Auth.js
 
 type RouteContext = {
-  // En tu proyecto params viene como Promise
   params: Promise<{ id: string }>;
 };
 
@@ -13,21 +11,16 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const { id } = await params;
 
   try {
-    // 🔐 Comprobamos sesión
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value ?? null;
-
-    if (!token) {
+    // 🔐 1. Autenticación con Auth.js (Reemplaza a cookies/verifyAuthToken)
+    const session = await auth();
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "Token no válido" }, { status: 401 });
-    }
-
+    // 🔐 2. Verificar Rol en BD
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { id: session.user.id },
       select: { id: true, role: true },
     });
 
@@ -35,10 +28,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
+    // 📥 3. Recoger datos
     const formData = await req.formData();
     const action = String(formData.get("_action") ?? "update");
 
-    // Buscamos el lote (para ambas operaciones) y de paso el reserved
+    // Buscamos el lote actual (necesitamos 'reserved' para validaciones y 'productId' para redirect)
     const lot = await prisma.stockLot.findUnique({
       where: { id },
       select: {
@@ -54,14 +48,15 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       );
     }
 
-    // Buscamos el producto para redirigir a su pantalla de stock
+    // Buscamos info del producto (para el redirect final)
     const product = await prisma.product.findUnique({
       where: { id: lot.productId },
       select: { slug: true },
     });
 
+    // ⚡ 4. Ejecutar Acción
     if (action === "delete") {
-      // (Si quisieras bloquear borrar con reserved > 0, podrías hacerlo aquí)
+      // Opción: Podrías bloquear el borrado si (lot.reserved > 0) para extra seguridad
       await prisma.stockLot.delete({
         where: { id },
       });
@@ -71,6 +66,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       const quantityRaw = String(formData.get("quantity") ?? "").trim();
       const expiresAtRaw = String(formData.get("expiresAt") ?? "").trim();
 
+      // Validaciones
       if (!lotCode) {
         return NextResponse.json(
           { error: "El código de lote es obligatorio" },
@@ -86,45 +82,50 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         );
       }
 
-      // ⛔ Protección: no permitir cantidad < reserved
+      // ⛔ Protección Crítica: No romper stock reservado
       if (quantity < lot.reserved) {
         return NextResponse.json(
           {
-            error:
-              "No puedes establecer una cantidad menor que la cantidad reservada.",
+            error: `No puedes bajar el stock a ${quantity} porque hay ${lot.reserved} unidades reservadas en pedidos.`,
           },
           { status: 400 }
         );
       }
 
-      let expiresAt: Date | null = null;
-      if (expiresAtRaw) {
-        const parsed = new Date(expiresAtRaw);
-        if (!Number.isNaN(parsed.getTime())) {
-          expiresAt = parsed;
-        } else {
-          return NextResponse.json(
-            { error: "Fecha de caducidad no válida" },
-            { status: 400 }
-          );
-        }
+      // 📅 Validación de Fecha (Ahora es obligatoria por Schema)
+      if (!expiresAtRaw) {
+        return NextResponse.json(
+          { error: "La fecha de caducidad es obligatoria" },
+          { status: 400 }
+        );
       }
 
+      const expiresAt = new Date(expiresAtRaw);
+      if (Number.isNaN(expiresAt.getTime())) {
+        return NextResponse.json(
+          { error: "Fecha de caducidad no válida" },
+          { status: 400 }
+        );
+      }
+
+      // Actualizamos
       await prisma.stockLot.update({
         where: { id },
         data: {
           lotCode,
           quantity,
-          expiresAt,
+          expiresAt, // Pasamos la fecha ya validada
         },
       });
     }
 
+    // 🔄 Redirect inteligente
     const redirectPath = product
-      ? `/panel/productos/${product?.slug}/stock`
+      ? `/panel/productos/${product.slug}/stock`
       : "/panel/productos";
 
     return NextResponse.redirect(new URL(redirectPath, req.url));
+
   } catch (err) {
     console.error("Error al procesar lote:", err);
     return NextResponse.json(

@@ -1,15 +1,13 @@
 // src/app/api/products/[slug]/media/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/src/lib/prisma";
-import { verifyAuthToken } from "@/src/lib/auth";
+import { auth } from "@/src/auth"; // ✅ Importamos Auth.js
 
 type RouteContext = {
-  // En tu proyecto params es una Promise
   params: Promise<{ slug: string }>;
 };
 
-// GET → listar imágenes de un producto (por si quieres usarlo vía fetch)
+// 📌 GET → Listar imágenes (PÚBLICO para que la tienda funcione)
 export async function GET(req: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
 
@@ -26,7 +24,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
             id: true,
             url: true,
             alt: true,
-            position: true,
+            position: true, // Útil para ordenar en el frontend
             createdAt: true,
             updatedAt: true,
           },
@@ -58,26 +56,21 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// POST → crear nueva imagen para un producto
+// 📌 POST → Subir/Vincular nueva imagen (PROTEGIDO)
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
 
   try {
-    // 🔐 Autenticación + rol
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value ?? null;
-
-    if (!token) {
+    // 🔐 1. Autenticación
+    const session = await auth();
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const payload = verifyAuthToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json({ error: "Token no válido" }, { status: 401 });
-    }
-
+    // 🔐 2. Verificar Rol en BD
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { id: session.user.id },
       select: { id: true, role: true },
     });
 
@@ -85,6 +78,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
+    // 📥 3. Procesar datos
     const formData = await req.formData();
     const url = String(formData.get("url") ?? "").trim();
     const alt = String(formData.get("alt") ?? "").trim();
@@ -113,8 +107,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       );
     }
 
+    // Lógica de posición (mantenemos tu lógica original, es correcta)
     let position: number | null = null;
-
     if (positionRaw) {
       const parsed = Number(positionRaw);
       if (!Number.isNaN(parsed) && parsed >= 0) {
@@ -122,7 +116,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       }
     }
 
-    // Si no se indica posición, usamos la siguiente disponible
+    // Si no hay posición, ponemos la última + 1
     if (position === null) {
       const maxPosition =
         product.media.reduce(
@@ -132,6 +126,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       position = maxPosition + 1;
     }
 
+    // Crear registro
     await prisma.media.create({
       data: {
         productId: product.id,
@@ -141,6 +136,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       },
     });
 
+    // Redirigir al panel
     return NextResponse.redirect(
       new URL(`/panel/productos/${product.slug}/imagenes`, req.url)
     );
