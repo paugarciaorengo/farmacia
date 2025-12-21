@@ -6,6 +6,7 @@ import NavBar from "./components/NavBar";
 import CartSidebar from "@/src/features/cart/CartSidebar"; 
 import Footer from "./components/Footer";
 import { Providers } from "./providers";
+import ChristmasSnow from "./components/ChristmasSnow";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,6 +35,7 @@ export default function RootLayout({
       >
         <Providers>
           <MaskLayout>
+            <ChristmasSnow />
             <CartSidebar /> 
 
             {/* ✅ 2. Contenedor Flex para "Sticky Footer" */}

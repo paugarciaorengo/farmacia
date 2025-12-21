@@ -35,7 +35,6 @@ export default async function CatalogoPage({
   const noRx = sp.noRx === "1" || sp.noRx === "true";
   const categoryId = sp.categoryId ?? "";
 
-  // 👇 Obtenemos las categorías para el selector directamente de BD
   const categories = await prisma.category.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true },
@@ -47,15 +46,14 @@ export default async function CatalogoPage({
   if (noRx) qs.set("noRx", "1");
   if (categoryId) qs.set("categoryId", categoryId);
 
-  // Llamada a tu API interna
   const res = await fetch(`${base}/api/products?${qs.toString()}`, {
     cache: "no-store",
   });
 
   if (!res.ok) {
     return (
-      // 🎨 Fondo global
-      <main className="min-h-screen bg-background p-6 flex items-center justify-center">
+      // 🎨 CORRECCIÓN AQUÍ TAMBIÉN: Añadimos 'pt-24' para el mensaje de error
+      <main className="min-h-screen bg-background p-6 pt-24 flex items-center justify-center">
         <div className="text-center space-y-4">
           <h1 className="text-2xl font-bold text-foreground">Error del sistema</h1>
           <p className="text-red-500">
@@ -80,7 +78,6 @@ export default async function CatalogoPage({
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  // Función auxiliar para URLs de paginación
   const makePageUrl = (p: number) => {
     const sp2 = new URLSearchParams();
     if (search) sp2.set("search", search);
@@ -92,8 +89,10 @@ export default async function CatalogoPage({
   };
 
   return (
-    // 🎨 Fondo global
-    <main className="min-h-screen bg-background p-6 md:p-12">
+    // 🎨 CORRECCIÓN PRINCIPAL:
+    // Cambiamos 'p-6 md:p-12' por 'p-6 md:p-12 pt-28 md:pt-32'
+    // Esto empuja todo el contenido hacia abajo para salvar la NavBar fija.
+    <main className="min-h-screen bg-background p-6 md:p-12 pt-28 md:pt-32">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Cabecera */}
@@ -102,10 +101,9 @@ export default async function CatalogoPage({
           <p className="text-muted-foreground">Gestiona y filtra el inventario disponible en tiempo real.</p>
         </div>
 
-        {/* Filtros / Buscador - Estilo Adaptable (Card) */}
+        {/* Filtros / Buscador */}
         <form
           method="GET"
-          // 🎨 bg-card y border-border
           className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-6"
         >
           <div className="flex flex-col md:flex-row gap-4">
@@ -119,7 +117,6 @@ export default async function CatalogoPage({
                 name="search"
                 defaultValue={search}
                 placeholder="Nombre, código o principio activo..."
-                // 🎨 bg-background, text-foreground, focus-primary
                 className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
               />
             </div>
@@ -132,7 +129,6 @@ export default async function CatalogoPage({
               <select
                 name="categoryId"
                 defaultValue={categoryId}
-                // 🎨 bg-background para el select
                 className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-all"
               >
                 <option value="">Todas las categorías</option>
@@ -153,7 +149,6 @@ export default async function CatalogoPage({
                   name="noRx"
                   value="1"
                   defaultChecked={noRx}
-                  // 🎨 Checkbox con colores semánticos
                   className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-border bg-background checked:border-primary checked:bg-primary transition-all"
                 />
                 <svg
@@ -176,7 +171,6 @@ export default async function CatalogoPage({
 
             <button
               type="submit"
-              // 🎨 Botón primario
               className="w-full md:w-auto rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 active:scale-95 transition-all"
             >
               Aplicar filtros
@@ -203,22 +197,22 @@ export default async function CatalogoPage({
                   imageUrl: p.media?.[0]?.url,
                   description: p.isPrescription ? "⚠️ Medicamento sujeto a prescripción médica" : "Venta libre - Sin receta",
                   category: p.category,
-                  isPrescription: p.isPrescription // Pasamos esto para que el ProductCard muestre el icono correcto
+                  isPrescription: p.isPrescription
                 }}
               />
             ))}
           </div>
         )}
 
-        {/* Paginación - Estilo Adaptable */}
+        {/* Paginación */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-4 text-sm mt-12">
             <a
               href={makePageUrl(Math.max(1, currentPage - 1))}
               className={`px-4 py-2 rounded-lg border transition-all ${
                 currentPage === 1
-                  ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50" // Deshabilitado
-                  : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card" // Activo
+                  ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50"
+                  : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card"
               }`}
             >
               ← Anterior
@@ -230,8 +224,8 @@ export default async function CatalogoPage({
               href={makePageUrl(Math.min(totalPages, currentPage + 1))}
               className={`px-4 py-2 rounded-lg border transition-all ${
                 currentPage === totalPages
-                  ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50" // Deshabilitado
-                  : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card" // Activo
+                  ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50"
+                  : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card"
               }`}
             >
               Siguiente →

@@ -1,22 +1,62 @@
-// src/app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/prisma'
 import { auth } from '@/src/auth'
 
-// Definimos la interfaz para evitar errores de TypeScript con 'role'
+// Interfaz para el rol de usuario
 interface ExtendedUser {
   role?: string
 }
 
-// PATCH: Editar un producto existente
+// ✅ GET: Obtener producto por ID o Slug (Público)
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+
+  try {
+    // Buscamos usando findFirst con OR para que funcione si pasas un ID o un Slug
+    const product = await prisma.product.findFirst({
+      where: {
+        OR: [
+          { id: id },   // Caso 1: Es un ID (ej: uuid-123-456)
+          { slug: id }  // Caso 2: Es un slug (ej: ibuprofeno-600)
+        ]
+      },
+      include: {
+        media: {
+          orderBy: { position: 'asc' }
+        },
+        lots: true // Necesitamos los lotes para calcular el stock real
+      }
+    })
+
+    if (!product) {
+      return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
+    }
+
+    // Calculamos el stock total sumando las cantidades de los lotes
+    const availability = product.lots.reduce((acc: number, lot: { quantity: number }) => acc + lot.quantity, 0)
+
+    // Devolvemos exactamente la estructura que espera tu página de producto
+    return NextResponse.json({
+      product,
+      availability
+    })
+
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ error: 'Error al obtener producto' }, { status: 500 })
+  }
+}
+
+// 🔐 PATCH: Editar producto (Solo Admin/Farmacéutico)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
   const { id } = await params
-  
-  // Casting del usuario para poder leer el rol
   const user = session?.user as ExtendedUser | undefined
 
   if (!user || (user.role !== 'ADMIN' && user.role !== 'PHARMACIST')) {
@@ -25,28 +65,22 @@ export async function PATCH(
 
   try {
     const body = await request.json()
-    // Extraemos campos especiales
     const { imageUrl, priceCents, media, ...data } = body
 
-    // Lógica simple de imagen: si nos mandan una nueva, reemplazamos las anteriores
-    // (Esto es opcional, depende de cómo quieras gestionar la galería)
+    // Si nos envían una URL de imagen, actualizamos la galería
     if (imageUrl) {
-      // Borramos imágenes anteriores asociadas a este producto
       await prisma.media.deleteMany({ where: { productId: id } })
-      
-      // Creamos la nueva
       await prisma.media.create({
         data: {
           url: imageUrl,
           type: 'IMAGE',
-          alt: data.name || 'Imagen de producto',
+          alt: data.name || 'Producto',
           productId: id,
           position: 1
         }
       })
     }
 
-    // Actualizamos el producto
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: {
@@ -57,19 +91,17 @@ export async function PATCH(
 
     return NextResponse.json(updatedProduct)
   } catch (error) {
-    console.error('Error actualizando:', error)
     return NextResponse.json({ error: 'Error actualizando producto' }, { status: 500 })
   }
 }
 
-// DELETE: Borrar un producto
+// 🔐 DELETE: Borrar producto (Solo Admin)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
   const { id } = await params
-  
   const user = session?.user as ExtendedUser | undefined
 
   if (!user || user.role !== 'ADMIN') { 
