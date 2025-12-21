@@ -1,19 +1,24 @@
-// src/app/api/products/[slug]/media/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
-import { auth } from "@/src/auth"; // ✅ Importamos Auth.js
+import { auth } from "@/src/auth";
+import { revalidatePath } from "next/cache"; // ✅ IMPORTANTE: Necesario para limpiar la caché
 
 type RouteContext = {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ id: string }>;
 };
 
-// 📌 GET → Listar imágenes (PÚBLICO para que la tienda funcione)
+// 📌 GET → Listar imágenes
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const { slug } = await params;
+  const { id } = await params;
 
   try {
-    const product = await prisma.product.findUnique({
-      where: { slug },
+    const product = await prisma.product.findFirst({
+      where: {
+        OR: [
+          { id: id },
+          { slug: id }
+        ]
+      },
       select: {
         id: true,
         name: true,
@@ -24,19 +29,14 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
             id: true,
             url: true,
             alt: true,
-            position: true, // Útil para ordenar en el frontend
-            createdAt: true,
-            updatedAt: true,
+            position: true,
           },
         },
       },
     });
 
     if (!product) {
-      return NextResponse.json(
-        { error: "Producto no encontrado" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
     }
 
     return NextResponse.json(
@@ -48,27 +48,18 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       { status: 200 }
     );
   } catch (err) {
-    console.error("Error obteniendo imágenes:", err);
-    return NextResponse.json(
-      { error: "Error obteniendo imágenes" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
 
-// 📌 POST → Subir/Vincular nueva imagen (PROTEGIDO)
+// 📌 POST → Subir nueva imagen
 export async function POST(req: NextRequest, { params }: RouteContext) {
-  const { slug } = await params;
+  const { id } = await params;
 
   try {
-    // 🔐 1. Autenticación
     const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-    }
+    if (!session?.user?.id) return NextResponse.json({ error: "No auth" }, { status: 401 });
 
-    // 🔐 2. Verificar Rol en BD
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { id: true, role: true },
@@ -78,73 +69,49 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    // 📥 3. Procesar datos
     const formData = await req.formData();
     const url = String(formData.get("url") ?? "").trim();
     const alt = String(formData.get("alt") ?? "").trim();
     const positionRaw = String(formData.get("position") ?? "").trim();
 
-    if (!url) {
-      return NextResponse.json(
-        { error: "La URL de la imagen es obligatoria" },
-        { status: 400 }
-      );
-    }
+    if (!url) return NextResponse.json({ error: "URL obligatoria" }, { status: 400 });
 
-    const product = await prisma.product.findUnique({
-      where: { slug },
-      select: {
-        id: true,
-        slug: true,
-        media: { select: { position: true } },
+    const product = await prisma.product.findFirst({
+      where: {
+        OR: [
+          { id: id },
+          { slug: id }
+        ]
       },
+      select: { id: true, slug: true, name: true, media: { select: { position: true } } },
     });
 
-    if (!product) {
-      return NextResponse.json(
-        { error: "Producto no encontrado" },
-        { status: 404 }
-      );
+    if (!product) return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
+
+    let position = positionRaw ? Number(positionRaw) : null;
+    if (position === null || isNaN(position)) {
+      const max = product.media.reduce((acc: number, m: { position: number }) => Math.max(acc, m.position), 0);
+      position = max + 1;
     }
 
-    // Lógica de posición (mantenemos tu lógica original, es correcta)
-    let position: number | null = null;
-    if (positionRaw) {
-      const parsed = Number(positionRaw);
-      if (!Number.isNaN(parsed) && parsed >= 0) {
-        position = parsed;
-      }
-    }
-
-    // Si no hay posición, ponemos la última + 1
-    if (position === null) {
-      const maxPosition =
-        product.media.reduce(
-          (max: number, m: { position: number }) => (m.position > max ? m.position : max),
-          0
-        ) ?? 0;
-      position = maxPosition + 1;
-    }
-
-    // Crear registro
     await prisma.media.create({
       data: {
         productId: product.id,
         url,
-        alt,
+        alt: alt || product.name,
         position,
       },
     });
 
-    // Redirigir al panel
-    return NextResponse.redirect(
-      new URL(`/panel/productos/${product.slug}/imagenes`, req.url)
-    );
+    // 👇 MAGIA ANTI-ZOMBIES 🧟‍♂️
+    // Obligamos a Next.js a refrescar estas páginas para que aparezca la foto nueva
+    revalidatePath(`/panel/productos/${product.slug}/imagenes`);
+    revalidatePath(`/panel/productos/${product.slug}/editar`);
+    revalidatePath(`/producto/${product.slug}`); // También la vista pública
+
+    return NextResponse.redirect(new URL(`/panel/productos/${product.slug}/imagenes`, req.url), 303);
   } catch (err) {
-    console.error("Error creando imagen:", err);
-    return NextResponse.json(
-      { error: "Error al crear la imagen" },
-      { status: 500 }
-    );
+    console.error(err);
+    return NextResponse.json({ error: "Error guardando imagen" }, { status: 500 });
   }
 }

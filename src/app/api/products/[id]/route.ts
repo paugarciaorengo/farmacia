@@ -2,52 +2,36 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/prisma'
 import { auth } from '@/src/auth'
 
-interface ExtendedUser {
-  role?: string
-}
-
-// ✅ GET: Obtener producto por ID o Slug
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-
   try {
     const product = await prisma.product.findFirst({
-      where: {
-        OR: [
-          { id: id },
-          { slug: id }
-        ]
-      },
+      where: { OR: [{ id }, { slug: id }] },
       include: {
-        media: { orderBy: { position: 'asc' } },
+        media: { orderBy: { position: 'asc' } }, // ✅ Prisma traerá solo los campos que existen
         lots: true 
       }
     })
 
-    if (!product) {
-      return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
-    }
+    if (!product) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
-    // Tipamos explícitamente para evitar errores de TS
     const availability = product.lots.reduce((acc: number, lot: { quantity: number }) => acc + lot.quantity, 0)
-
     return NextResponse.json({ product, availability })
   } catch (error) {
-    return NextResponse.json({ error: 'Error al obtener producto' }, { status: 500 })
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
 
-// 🔐 PATCH: Editar producto
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
   const { id } = await params
-  const user = session?.user as ExtendedUser | undefined
+  const user = session?.user as { role?: string } | undefined
 
   if (!user || (user.role !== 'ADMIN' && user.role !== 'PHARMACIST')) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
@@ -56,72 +40,66 @@ export async function PATCH(
   try {
     const body = await request.json()
     
-    // 👇 DESESTRUCTURACIÓN: Sacamos 'price' para que no rompa Prisma
+    // Filtramos campos peligrosos
     const { 
-      id: _id,          // Ignorar ID
-      createdAt,        // Ignorar fechas auto
-      updatedAt,        // Ignorar fechas auto
-      lots,             // Ignorar array de lotes
-      category,         // Ignorar objeto categoría
-      media,            // Se gestiona aparte
-      imageUrl,         // Se gestiona aparte
-      priceCents,       // Lo usaremos convertido
-      price,            // 🚨 EXCLUIMOS ESTE CAMPO (Causante del error)
-      vatRate,          // Lo tratamos aparte
-      categoryId,
-      ...rest           // Nos quedamos con: name, slug, description, sku, etc.
+      id: _id, createdAt, updatedAt, lots, category, media, 
+      price, vatRate, categoryId, imageUrl, priceCents,
+      ...rest 
     } = body
 
-    // Gestión de Imagen
+    // 👇 CORRECCIÓN CLAVE: Lógica de imagen sin el campo 'type'
     if (imageUrl) {
-      await prisma.media.deleteMany({ where: { productId: id } })
-      await prisma.media.create({
-        data: {
-          url: imageUrl,
-          type: 'IMAGE',
-          alt: rest.name || 'Producto',
-          productId: id,
-          position: 1
-        }
+      const existingCover = await prisma.media.findFirst({
+        where: { productId: id, position: 0 }
       })
+
+      if (existingCover) {
+        await prisma.media.update({
+          where: { id: existingCover.id },
+          data: { url: imageUrl }
+        })
+      } else {
+        await prisma.media.create({
+          data: {
+            url: imageUrl,
+            alt: rest.name || 'Producto',
+            productId: id,
+            position: 0
+            // ❌ BORRADO: type: 'IMAGE' (No existe en tu BD)
+          }
+        })
+      }
     }
 
-    // Actualización
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: {
-        ...rest, // Aquí ya no está 'price', así que funcionará ✅
+        ...rest,
         priceCents: Number(priceCents),
         categoryId: categoryId || null,
-        // Solo actualizamos vatRate si nos lo envían, si no, se mantiene
         ...(vatRate !== undefined ? { vatRate: Number(vatRate) } : {}) 
       }
     })
 
     return NextResponse.json(updatedProduct)
   } catch (error) {
-    console.error('Error PATCH:', error)
-    return NextResponse.json({ error: 'Error actualizando producto' }, { status: 500 })
+    console.error(error)
+    return NextResponse.json({ error: 'Error actualizando' }, { status: 500 })
   }
 }
 
-// 🔐 DELETE: Borrar producto
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await auth()
-  const { id } = await params
-  const user = session?.user as ExtendedUser | undefined
-
-  if (!user || user.role !== 'ADMIN') { 
-    return NextResponse.json({ error: 'Solo administradores pueden borrar' }, { status: 403 })
-  }
-
-  try {
-    await prisma.product.delete({ where: { id } })
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    return NextResponse.json({ error: 'No se puede borrar. Puede tener pedidos asociados.' }, { status: 500 })
-  }
+// DELETE (Igual que antes)
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+   // ... (Mantén tu código de DELETE o usa el anterior, ese no fallaba)
+   const session = await auth()
+   const { id } = await params
+   const user = session?.user as { role?: string } | undefined
+   if (!user || user.role !== 'ADMIN') return NextResponse.json({ error: 'No admin' }, { status: 403 })
+   
+   try {
+     await prisma.product.delete({ where: { id } })
+     return NextResponse.json({ success: true })
+   } catch (e) {
+     return NextResponse.json({ error: 'Error al borrar' }, { status: 500 })
+   }
 }

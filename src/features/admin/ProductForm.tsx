@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // 👈 1. Importamos useEffect
 import { useRouter } from 'next/navigation'
-import { Save, Loader2 } from 'lucide-react'
+import { Save, Loader2, Images, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
 interface Category {
@@ -16,12 +16,12 @@ interface ProductFormProps {
     id?: string
     name: string
     slug: string
-    sku?: string // ✅ Añadido SKU
+    sku?: string
     description: string | null
     priceCents: number
     farmaticCode: string | null
     categoryId: string | null
-    media?: { url: string }[]
+    media?: { url: string }[] 
   }
 }
 
@@ -29,11 +29,10 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   
-  // Estado del formulario
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     slug: initialData?.slug || '',
-    sku: initialData?.sku || '', // ✅ Estado para SKU
+    sku: initialData?.sku || '',
     description: initialData?.description || '',
     price: initialData?.priceCents ? initialData.priceCents / 100 : 0,
     farmaticCode: initialData?.farmaticCode || '',
@@ -41,13 +40,27 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
     imageUrl: initialData?.media?.[0]?.url || ''
   })
 
-  // Generar slug y SKU sugerido al escribir nombre
+  // 👇 2. EFECTO MAGICO: Sincroniza la portada si vuelves de la galería con cambios
+  useEffect(() => {
+    if (initialData?.media) {
+      const newCoverUrl = initialData.media[0]?.url || ''
+      
+      // Solo actualizamos si es diferente para no molestar al usuario si está escribiendo
+      setFormData(prev => {
+        if (prev.imageUrl !== newCoverUrl) {
+           return { ...prev, imageUrl: newCoverUrl }
+        }
+        return prev
+      })
+    }
+  }, [initialData]) 
+
+  // Generar slug automático si es nuevo
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value
     setFormData(prev => ({
       ...prev,
       name,
-      // Solo autogeneramos si es nuevo
       slug: !initialData ? name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') : prev.slug,
     }))
   }
@@ -93,7 +106,7 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
             {initialData ? 'Editar Producto' : 'Nuevo Producto'}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Información básica del medicamento.
+            Información básica y precios.
           </p>
         </div>
         <div className="flex gap-3">
@@ -118,6 +131,8 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
         
         {/* Columna Izquierda */}
         <div className="lg:col-span-2 space-y-6">
+          
+          {/* Datos Generales */}
           <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
             <h2 className="font-bold text-lg text-foreground mb-4">Información General</h2>
             
@@ -133,7 +148,6 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
                 />
               </div>
 
-              {/* ✅ Campo SKU añadido */}
               <div>
                 <label className="text-xs font-bold uppercase text-muted-foreground mb-1 block">SKU (Ref. Interna)</label>
                 <input
@@ -178,16 +192,48 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
             </div>
           </div>
 
+          {/* 📸 SECCIÓN MULTIMEDIA ACTUALIZADA */}
           <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-             <h2 className="font-bold text-lg text-foreground mb-4">Multimedia</h2>
-             <div>
-                <label className="text-xs font-bold uppercase text-muted-foreground mb-1 block">URL de Imagen</label>
-                <input
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                  placeholder="https://..."
-                />
+             <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-lg text-foreground">Multimedia</h2>
+                
+                {/* BOTÓN MÁGICO */}
+                {initialData?.slug && (
+                  <Link 
+                    href={`/panel/productos/${initialData.slug}/imagenes`}
+                    className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/20 px-3 py-1.5 rounded-lg transition-colors font-bold flex items-center gap-2"
+                  >
+                    <Images size={16} /> 
+                    Gestionar Galería Completa
+                  </Link>
+                )}
+             </div>
+
+             <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold uppercase text-muted-foreground mb-1 block">URL de Imagen Principal (Portada)</label>
+                  <div className="flex gap-2">
+                    <input
+                      value={formData.imageUrl}
+                      onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                      placeholder="https://..."
+                    />
+                    {formData.imageUrl && (
+                      <a 
+                        href={formData.imageUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="p-3 border border-border rounded-xl hover:bg-muted transition-colors text-muted-foreground"
+                      >
+                        <ExternalLink size={20} />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    * Esta es la foto en posición 0. Para cambiarla, usa "Gestionar Galería" y reordena las fotos o pega aquí una nueva URL.
+                  </p>
+                </div>
              </div>
           </div>
         </div>
@@ -229,12 +275,13 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
             </div>
           </div>
 
+          {/* Vista Previa */}
           {formData.imageUrl && (
             <div className="bg-card border border-border rounded-2xl p-4 shadow-sm flex flex-col items-center">
-              <span className="text-xs font-bold uppercase text-muted-foreground mb-3">Vista Previa</span>
-              <div className="relative w-32 h-32 rounded-xl overflow-hidden bg-muted border border-border">
+              <span className="text-xs font-bold uppercase text-muted-foreground mb-3">Vista Previa Portada</span>
+              <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-muted border border-border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-contain p-2" />
               </div>
             </div>
           )}
