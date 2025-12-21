@@ -1,8 +1,9 @@
+
 'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useCartStore } from '@/src/store/cart-store' // ✅ Importamos la store
+import { useCartStore } from '@/src/store/cart-store'
 import { Plus, ShieldCheck, Star, Pill } from 'lucide-react'
 
 // Definimos la interfaz que espera tu catálogo
@@ -11,14 +12,13 @@ export interface ProductProps {
   name: string;
   slug: string;
   description: string | null;
-  price: number;     // En euros
+  price: number;
   stock: number;
   imageUrl?: string | null;
   category?: { name: string } | null;
-  isPrescription?: boolean; // Añadido para lógica de iconos
+  isPrescription?: boolean;
 }
 
-// ✅ Usamos "export function" para que coincida con tu import { ProductCard }
 export function ProductCard({ product }: { product: ProductProps }) {
   const addItem = useCartStore((state) => state.addItem)
 
@@ -30,7 +30,7 @@ export function ProductCard({ product }: { product: ProductProps }) {
       productId: product.id,
       name: product.name,
       slug: product.slug,
-      priceCents: Math.round(product.price * 100), // Convertimos a céntimos para la store
+      priceCents: Math.round(product.price * 100),
       imageUrl: product.imageUrl || undefined,
       quantity: 1,
       maxQuantity: product.stock > 0 ? product.stock : 10
@@ -43,11 +43,11 @@ export function ProductCard({ product }: { product: ProductProps }) {
 
   return (
     <Link href={`/producto/${product.slug}`} className="block h-full group">
-      <div className="relative flex flex-col h-full overflow-hidden transition-all duration-300 border rounded-2xl bg-slate-900/50 border-slate-800 hover:border-emerald-500/50 hover:shadow-2xl hover:shadow-emerald-900/10 backdrop-blur-sm">
+      {/* 🎨 Usamos variables semánticas: bg-card, border-border... */}
+      <div className="relative flex flex-col h-full overflow-hidden transition-all duration-300 border rounded-2xl bg-card border-border hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm">
         
-        {/* Zona de Imagen */}
-        <div className="relative flex items-center justify-center overflow-hidden h-56 bg-slate-800/50">
-          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-900/90 to-transparent" />
+        {/* Zona de Imagen: Fondo 'muted' en lugar de slate-800 */}
+        <div className="relative flex items-center justify-center overflow-hidden h-56 bg-muted">
           
           {product.imageUrl ? (
             <Image 
@@ -57,10 +57,10 @@ export function ProductCard({ product }: { product: ProductProps }) {
               className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            <IconPlaceholder className="absolute transition-transform duration-500 w-32 h-32 text-emerald-500/20 group-hover:scale-110" />
+            <IconPlaceholder className="absolute transition-transform duration-500 w-32 h-32 text-muted-foreground/20 group-hover:scale-110" />
           )}
           
-          {/* Badge de Stock */}
+          {/* Badge de Stock (Mantenemos colores de alerta explícitos) */}
           {product.stock < 10 && product.stock > 0 && (
             <span className="absolute z-20 px-2 py-1 text-[10px] font-bold text-white uppercase rounded shadow-lg top-3 right-3 bg-amber-500/90">
               Últimas {product.stock} u.
@@ -76,7 +76,7 @@ export function ProductCard({ product }: { product: ProductProps }) {
         {/* Contenido */}
         <div className="relative z-20 flex flex-col flex-grow p-6">
           <div className="flex items-start justify-between mb-3">
-            <span className="px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700">
+            <span className="px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border">
               {product.category?.name || 'Farmacia'}
             </span>
             <div className="flex items-center gap-1 text-xs font-bold text-amber-400">
@@ -85,26 +85,26 @@ export function ProductCard({ product }: { product: ProductProps }) {
             </div>
           </div>
           
-          <h3 className="mb-2 text-lg font-bold transition-colors text-slate-100 group-hover:text-emerald-400 line-clamp-1">
+          <h3 className="mb-2 text-lg font-bold transition-colors text-card-foreground group-hover:text-primary line-clamp-1">
             {product.name}
           </h3>
           
-          <p className="h-10 mb-6 text-sm leading-relaxed text-slate-400 line-clamp-2">
+          <p className="h-10 mb-6 text-sm leading-relaxed text-muted-foreground line-clamp-2">
             {product.description || 'Producto de alta calidad farmacéutica.'}
           </p>
 
-          <div className="flex items-center justify-between pt-4 mt-auto border-t border-slate-800/50">
+          <div className="flex items-center justify-between pt-4 mt-auto border-t border-border">
             <div className="flex flex-col">
-              <span className="text-xs text-slate-500">Precio</span>
-              <span className="text-2xl font-bold text-white">
+              <span className="text-xs text-muted-foreground">Precio</span>
+              <span className="text-2xl font-bold text-foreground">
                 {product.price.toFixed(2)}€
               </span>
             </div>
             
-            {/* Botón de Añadir funcional */}
+            {/* Botón usando variable 'primary' */}
             <button
               onClick={handleAddToCart}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-bold transition-colors rounded-lg shadow-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20 active:scale-95"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-bold transition-colors rounded-lg shadow-lg bg-primary text-primary-foreground hover:opacity-90 shadow-primary/20 active:scale-95"
             >
               <Plus size={18} strokeWidth={3} />
               Añadir

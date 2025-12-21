@@ -3,29 +3,30 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const links = [
-  { href: '/', label: 'Inicio' },
-  { href: '/catalogo', label: 'Catálogo' },
-]
-
 export default function NavLinks() {
   const pathname = usePathname()
 
+  const links = [
+    { name: 'Inicio', href: '/' },
+    { name: 'Catálogo', href: '/catalogo' },
+    // { name: 'Servicios', href: '/servicios' }, // Si tienes más
+  ]
+
   return (
-    <nav className="flex items-center gap-4 text-sm">
-      {links.map(link => {
-        const active = pathname === link.href
+    <nav className="flex items-center gap-6">
+      {links.map((link) => {
+        const isActive = pathname === link.href
         return (
           <Link
             key={link.href}
             href={link.href}
-            className={
-              active
-                ? 'text-emerald-400 font-medium'
-                : 'text-neutral-300 hover:text-white'
-            }
+            className={`text-sm font-medium transition-colors hover:text-primary ${
+              isActive 
+                ? 'text-primary font-bold' 
+                : 'text-muted-foreground' // Color suave por defecto
+            }`}
           >
-            {link.label}
+            {link.name}
           </Link>
         )
       })}

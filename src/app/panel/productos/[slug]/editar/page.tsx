@@ -1,185 +1,48 @@
-// src/app/panel/productos/[slug]/editar/page.tsx
+import { auth } from '@/src/auth'
+import { redirect, notFound } from 'next/navigation'
+import { prisma } from '@/src/lib/prisma'
+import ProductForm from '@/src/features/admin/ProductForm'
 
-import { redirect } from "next/navigation";
-import { auth } from "@/src/auth"; // ✅ Importamos Auth.js
-import { prisma } from "@/src/lib/prisma";
-import Link from "next/link";
+// Igual que antes, definimos el tipo para el rol
+interface ExtendedUser {
+  role?: string
+}
 
-type EditPageProps = {
-  params: Promise<{ slug: string }>;
-};
+export default async function EditProductPage({ params }: { params: Promise<{ slug: string }> }) {
+  const session = await auth()
+  const { slug } = await params
 
-export default async function EditarProductoPage({ params }: EditPageProps) {
-  const { slug } = await params;
+  const user = session?.user as ExtendedUser | undefined
 
-  // 🔐 1. Autenticación con Auth.js
-  const session = await auth();
-
-  // Si no hay sesión, redirigir al login
-  if (!session?.user?.id) {
-    redirect("/login");
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'PHARMACIST')) {
+    redirect('/panel')
   }
 
-  // 🔐 2. Verificar Rol en BD
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-
-  if (!user || (user.role !== "ADMIN" && user.role !== "PHARMACIST")) {
-    redirect("/catalogo");
-  }
-
-  // 🔎 3. Cargamos el producto por slug
+  // 1. Buscamos el producto
   const product = await prisma.product.findUnique({
     where: { slug },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      sku: true,
-      farmaticCode: true,
-      priceCents: true,
-      vatRate: true,
-      isPrescription: true,
-      active: true,
-    },
-  });
+    include: { media: true }
+  })
 
-  if (!product) {
-    redirect("/panel/productos");
-  }
+  if (!product) notFound()
 
-  const priceEuros = (product.priceCents / 100).toFixed(2);
-  const vatRateStr = product.vatRate.toString();
+  // 2. Buscamos categorías
+  const categories = await prisma.category.findMany({
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true }
+  })
 
   return (
-    <main className="p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-2">Editar producto</h1>
-      <p className="text-xs text-neutral-400 mb-6">{product.slug}</p>
-
-      <form
-        action={`/api/products/${product.slug}`}
-        method="POST"
-        className="space-y-4 bg-neutral-900 p-6 rounded-xl border border-neutral-800"
-      >
-        <div>
-          <label className="block mb-1 text-sm">Nombre del producto</label>
-          <input
-            type="text"
-            name="name"
-            defaultValue={product.name}
-            required
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 text-sm">SKU interno</label>
-          <input
-            type="text"
-            name="sku"
-            defaultValue={product.sku}
-            required
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 text-sm">Código Farmatic (opcional)</label>
-          <input
-            type="text"
-            name="farmaticCode"
-            defaultValue={product.farmaticCode ?? ""}
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 text-sm">Precio (€)</label>
-          <input
-            type="number"
-            name="price"
-            min="0"
-            step="0.01"
-            defaultValue={priceEuros}
-            required
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 text-sm">IVA</label>
-          <select
-            name="vatRate"
-            defaultValue={vatRateStr}
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
-          >
-            <option value="4">4% (muy reducido)</option>
-            <option value="10">10% (sanitario / farmacia)</option>
-            <option value="21">21% (parafarmacia)</option>
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="isPrescription"
-            name="isPrescription"
-            defaultChecked={product.isPrescription}
-            className="h-4 w-4 rounded border-neutral-700 bg-neutral-950"
-          />
-          <label htmlFor="isPrescription" className="text-sm">
-            Requiere receta médica
-          </label>
-        </div>
-
-        <div>
-          <label className="block mb-1 text-sm">Slug (URL)</label>
-          <input
-            type="text"
-            name="slug"
-            defaultValue={product.slug}
-            required
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 text-sm">Activo</label>
-          <select
-            name="active"
-            defaultValue={product.active ? "true" : "false"}
-            className="w-full rounded px-3 py-2 bg-neutral-950 border border-neutral-700"
-          >
-            <option value="true">Sí</option>
-            <option value="false">No</option>
-          </select>
-        </div>
-
-        <div className="flex gap-2 justify-end pt-2">
-          <a
-            href="/panel/productos"
-            className="px-4 py-2 text-sm rounded border border-neutral-700 text-neutral-200 hover:bg-neutral-800"
-          >
-            Cancelar
-          </a>
-
-          <Link
-           href={`/panel/productos/${product.slug}/imagenes`}
-           className="inline-flex items-center rounded border border-sky-500/60 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-500/10"
-          >
-            Gestionar imágenes
-          </Link>
-
-          <button
-            type="submit"
-            className="px-4 py-2 text-sm rounded bg-emerald-500 text-black font-semibold hover:bg-emerald-400"
-          >
-            Guardar cambios
-          </button>
-        </div>
-      </form>
+    <main className="min-h-screen bg-background p-6 md:p-12">
+      <ProductForm 
+        categories={categories} 
+        initialData={{
+          ...product,
+          categoryId: product.categoryId || '',
+          // 👇 Aquí corregimos el error del parámetro 'm' tipándolo explícitamente
+          media: product.media.map((m: { url: string }) => ({ url: m.url }))
+        }}
+      />
     </main>
-  );
+  )
 }

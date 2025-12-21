@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useCartStore } from '@/src/store/cart-store'
 import { ShoppingBag } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 export default function CartButton() {
   const [mounted, setMounted] = useState(false)
@@ -13,26 +13,33 @@ export default function CartButton() {
     setMounted(true)
   }, [])
 
-  if (!mounted) {
-    return <div className="w-10 h-10" /> // Placeholder para evitar saltos
-  }
-
   return (
-    <button 
+    <button
       onClick={toggleCart}
-      className="relative p-2 hover:bg-slate-800 rounded-full transition-colors group"
-      aria-label="Abrir carrito"
+      // 🎨 CAMBIO: bg-card, border-border, text-foreground
+      // Hover effects usando variables primarias
+      className="group relative flex items-center gap-2 rounded-full border border-border bg-card p-2 pr-4 transition-all hover:border-primary/50 hover:bg-muted hover:shadow-lg hover:shadow-primary/5 active:scale-95"
     >
-      <ShoppingBag 
-        size={22} 
-        className="text-slate-300 group-hover:text-emerald-400 transition-colors" 
-      />
+      <div className="relative">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+          <ShoppingBag size={18} />
+        </div>
+        
+        {mounted && totalItems > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-card">
+            {totalItems}
+          </span>
+        )}
+      </div>
       
-      {totalItems > 0 && (
-        <span className="absolute top-0 right-0 h-5 w-5 bg-emerald-500 text-slate-950 text-xs font-bold rounded-full flex items-center justify-center border-2 border-slate-950 shadow-sm animate-fade-in">
-          {totalItems}
+      <div className="flex flex-col items-start leading-none">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground group-hover:text-primary">
+          Mi Cesta
         </span>
-      )}
+        <span className="text-sm font-bold text-foreground">
+          {mounted && totalItems > 0 ? `${totalItems} items` : 'Vacía'}
+        </span>
+      </div>
     </button>
   )
 }

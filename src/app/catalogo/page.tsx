@@ -13,7 +13,6 @@ type CatalogPageProps = {
   }>;
 };
 
-// Tu tipo original para los datos que vienen de la API
 type ProductItem = {
   id: string;
   name: string;
@@ -55,10 +54,11 @@ export default async function CatalogoPage({
 
   if (!res.ok) {
     return (
-      <main className="min-h-screen bg-slate-950 p-6 flex items-center justify-center">
+      // 🎨 Fondo global
+      <main className="min-h-screen bg-background p-6 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-white">Error del sistema</h1>
-          <p className="text-red-400">
+          <h1 className="text-2xl font-bold text-foreground">Error del sistema</h1>
+          <p className="text-red-500">
             No se pudieron cargar los productos (código {res.status})
           </p>
         </div>
@@ -92,24 +92,26 @@ export default async function CatalogoPage({
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 p-6 md:p-12">
+    // 🎨 Fondo global
+    <main className="min-h-screen bg-background p-6 md:p-12">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Cabecera */}
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Catálogo de productos</h1>
-          <p className="text-slate-400">Gestiona y filtra el inventario disponible en tiempo real.</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Catálogo de productos</h1>
+          <p className="text-muted-foreground">Gestiona y filtra el inventario disponible en tiempo real.</p>
         </div>
 
-        {/* Filtros / Buscador - Estilo Premium Dark */}
+        {/* Filtros / Buscador - Estilo Adaptable (Card) */}
         <form
           method="GET"
-          className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-6"
+          // 🎨 bg-card y border-border
+          className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-6"
         >
           <div className="flex flex-col md:flex-row gap-4">
             {/* Input Búsqueda */}
             <div className="flex-1 space-y-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Search size={14} /> Buscar
               </label>
               <input
@@ -117,19 +119,21 @@ export default async function CatalogoPage({
                 name="search"
                 defaultValue={search}
                 placeholder="Nombre, código o principio activo..."
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                // 🎨 bg-background, text-foreground, focus-primary
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
               />
             </div>
 
             {/* Select Categoría */}
             <div className="w-full md:w-64 space-y-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Filter size={14} /> Categoría
               </label>
               <select
                 name="categoryId"
                 defaultValue={categoryId}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none appearance-none transition-all"
+                // 🎨 bg-background para el select
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none transition-all"
               >
                 <option value="">Todas las categorías</option>
                 {categories.map((cat: { id: string; name: string }) => (
@@ -141,18 +145,19 @@ export default async function CatalogoPage({
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800">
-            <label className="flex items-center gap-3 text-sm text-slate-300 cursor-pointer hover:text-white transition-colors">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-border">
+            <label className="flex items-center gap-3 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
               <div className="relative flex items-center">
                 <input
                   type="checkbox"
                   name="noRx"
                   value="1"
                   defaultChecked={noRx}
-                  className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-600 bg-slate-950 checked:border-emerald-500 checked:bg-emerald-500 transition-all"
+                  // 🎨 Checkbox con colores semánticos
+                  className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-border bg-background checked:border-primary checked:bg-primary transition-all"
                 />
                 <svg
-                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-950 opacity-0 peer-checked:opacity-100 transition-opacity"
+                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity"
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
                   fill="none"
@@ -171,7 +176,8 @@ export default async function CatalogoPage({
 
             <button
               type="submit"
-              className="w-full md:w-auto rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 shadow-lg shadow-emerald-900/20 active:scale-95 transition-all"
+              // 🎨 Botón primario
+              className="w-full md:w-auto rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 active:scale-95 transition-all"
             >
               Aplicar filtros
             </button>
@@ -180,8 +186,8 @@ export default async function CatalogoPage({
 
         {/* Grid de productos */}
         {items.length === 0 ? (
-          <div className="text-center py-20 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
-            <p className="text-slate-500 text-lg">No se han encontrado productos con esos filtros.</p>
+          <div className="text-center py-20 bg-card rounded-2xl border border-border border-dashed">
+            <p className="text-muted-foreground text-lg">No se han encontrado productos con esos filtros.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -192,40 +198,40 @@ export default async function CatalogoPage({
                   id: p.id,
                   slug: p.slug,
                   name: p.name,
-                  price: p.priceCents / 100, // Convertimos céntimos a euros para el componente
+                  price: p.priceCents / 100, 
                   stock: p.availability,
                   imageUrl: p.media?.[0]?.url,
-                  // Usamos la descripción para mostrar info relevante ya que el componente la soporta
                   description: p.isPrescription ? "⚠️ Medicamento sujeto a prescripción médica" : "Venta libre - Sin receta",
-                  category: p.category // Opcional, si la API lo devolviera lo pondríamos aquí
+                  category: p.category,
+                  isPrescription: p.isPrescription // Pasamos esto para que el ProductCard muestre el icono correcto
                 }}
               />
             ))}
           </div>
         )}
 
-        {/* Paginación - Estilo Slate */}
+        {/* Paginación - Estilo Adaptable */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-4 text-sm mt-12">
             <a
               href={makePageUrl(Math.max(1, currentPage - 1))}
               className={`px-4 py-2 rounded-lg border transition-all ${
                 currentPage === 1
-                  ? "pointer-events-none border-slate-800 text-slate-600 bg-slate-900/50"
-                  : "border-slate-700 text-slate-300 hover:border-emerald-500 hover:text-emerald-400 bg-slate-900"
+                  ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50" // Deshabilitado
+                  : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card" // Activo
               }`}
             >
               ← Anterior
             </a>
-            <span className="text-slate-400 font-medium">
-              Página <span className="text-white">{currentPage}</span> de {totalPages}
+            <span className="text-muted-foreground font-medium">
+              Página <span className="text-foreground font-bold">{currentPage}</span> de {totalPages}
             </span>
             <a
               href={makePageUrl(Math.min(totalPages, currentPage + 1))}
               className={`px-4 py-2 rounded-lg border transition-all ${
                 currentPage === totalPages
-                  ? "pointer-events-none border-slate-800 text-slate-600 bg-slate-900/50"
-                  : "border-slate-700 text-slate-300 hover:border-emerald-500 hover:text-emerald-400 bg-slate-900"
+                  ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50" // Deshabilitado
+                  : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card" // Activo
               }`}
             >
               Siguiente →

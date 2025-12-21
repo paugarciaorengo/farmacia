@@ -53,14 +53,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const priceEuros = (product.priceCents / 100).toFixed(2);
 
   return (
-    <main className="min-h-screen bg-slate-950 py-8 px-4 md:px-8">
+    // 🎨 Fondo y texto globales
+    <main className="min-h-screen bg-background py-8 px-4 md:px-8">
       <div className="max-w-7xl mx-auto animate-fade-in">
         
-        {/* Breadcrumb / Volver */}
         <div className="mb-8">
           <Link 
             href="/catalogo" 
-            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
           >
             <ChevronLeft size={16} /> Volver al catálogo
           </Link>
@@ -68,54 +68,52 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           
-          {/* COLUMNA IZQUIERDA: Galería */}
+          {/* Galería (Fondo muted para huecos vacíos) */}
           <div>
             {product.media && product.media.length > 0 ? (
               <Gallery media={product.media} name={product.name} />
             ) : (
-              <div className="aspect-square w-full bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-700">
-                <span className="text-slate-600">Sin imagen disponible</span>
+              <div className="aspect-square w-full bg-muted rounded-2xl flex items-center justify-center border border-border">
+                <span className="text-muted-foreground">Sin imagen disponible</span>
               </div>
             )}
           </div>
 
-          {/* COLUMNA DERECHA: Información */}
           <div className="flex flex-col">
-            
-            {/* Header Producto */}
-            <div className="border-b border-slate-800 pb-6 mb-6">
+             {/* Header */}
+            <div className="border-b border-border pb-6 mb-6">
                <div className="flex items-center gap-3 mb-4">
-                 <span className="bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                 <span className="bg-muted text-muted-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide border border-border">
                     {product.sku ? `REF: ${product.sku}` : 'Farmacia'}
                  </span>
+                 {/* Stock badges: mantenemos colores semánticos de alerta */}
                  {availability > 0 ? (
-                   <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold uppercase tracking-wide bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                   <span className="flex items-center gap-1.5 text-emerald-600 bg-emerald-100/50 text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full border border-emerald-200">
                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"/>
                      Stock Disponible ({availability})
                    </span>
                  ) : (
-                   <span className="text-red-400 text-xs font-bold uppercase tracking-wide bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
+                   <span className="text-red-600 bg-red-100/50 text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full border border-red-200">
                      Agotado
                    </span>
                  )}
                </div>
 
-               <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
+               <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4 leading-tight">
                  {product.name}
                </h1>
 
                <div className="flex items-baseline gap-2">
-                 <span className="text-4xl font-bold text-white">{priceEuros}€</span>
-                 <span className="text-sm text-slate-500">Impuestos incluidos</span>
+                 <span className="text-4xl font-bold text-foreground">{priceEuros}€</span>
+                 <span className="text-sm text-muted-foreground">Impuestos incluidos</span>
                </div>
             </div>
 
-            {/* Descripción */}
-            <div className="prose prose-invert prose-slate mb-8 text-slate-300 leading-relaxed">
+            {/* Descripción (Usamos text-muted-foreground en lugar de prose-invert) */}
+            <div className="prose prose-slate max-w-none mb-8 text-muted-foreground leading-relaxed">
               <p>{product.description ?? "Sin descripción detallada disponible."}</p>
             </div>
 
-            {/* Botones de Acción (Client Component) */}
             <div className="mb-8">
               <ProductActions 
                 product={{
@@ -129,15 +127,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
               />
             </div>
 
-            {/* Garantías / Iconos Extra */}
+            {/* Garantías (Variables para fondos y bordes) */}
             <div className="grid grid-cols-2 gap-4 mt-auto">
-               <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex items-center gap-3">
-                  <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+               <div className="bg-card p-4 rounded-xl border border-border flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
                     <ShieldCheck size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white">Garantía 100%</p>
-                    <p className="text-xs text-slate-400">Farmacia certificada</p>
+                    <p className="text-sm font-bold text-foreground">Garantía 100%</p>
+                    <p className="text-xs text-muted-foreground">Farmacia certificada</p>
+                  </div>
+               </div>
+               <div className="bg-card p-4 rounded-xl border border-border flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
+                    <Truck size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-foreground">Recogida Rápida</p>
+                    <p className="text-xs text-muted-foreground">Pedido listo en 2h</p>
                   </div>
                </div>
             </div>

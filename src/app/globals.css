@@ -1,10 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #020617; /* slate-950 */
-  --color-foreground: #e2e8f0; /* slate-200 */
-  --color-primary: #10b981;    /* emerald-500 */
-  
   --animate-fade-in: fade-in 0.5s ease-out;
   --animate-slide-in: slide-in 0.3s ease-out;
   
@@ -19,32 +15,61 @@
   }
 }
 
+/* 🌞 MODO DÍA (Por defecto) */
 :root {
-  /* Variables base para mantener compatibilidad */
-  --background: #020617;
-  --foreground: #e2e8f0;
+  --background: #f8fafc;       /* Slate-50 */
+  --foreground: #0f172a;       /* Slate-900 */
+  
+  --card: #ffffff;             /* White */
+  --card-foreground: #334155;  /* Slate-700 */
+  
+  --primary: #059669;          /* Emerald-600 */
+  --primary-foreground: #ffffff; 
+  
+  --muted: #f1f5f9;            /* Slate-100 */
+  --muted-foreground: #64748b; /* Slate-500 */
+  
+  --border: #e2e8f0;           /* Slate-200 */
+}
+
+/* 🌙 MODO NOCHE (Se activa con la clase .dark) */
+.dark {
+  --background: #020617;       /* Slate-950 */
+  --foreground: #f1f5f9;       /* Slate-100 */
+  
+  --card: #0f172a;             /* Slate-900 */
+  --card-foreground: #cbd5e1;  /* Slate-300 */
+  
+  --primary: #10b981;          /* Emerald-500 (más brillante para oscuro) */
+  --primary-foreground: #020617; 
+  
+  --muted: #1e293b;            /* Slate-800 */
+  --muted-foreground: #94a3b8; /* Slate-400 */
+  
+  --border: #1e293b;           /* Slate-800 */
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s, color 0.3s; /* Suaviza el cambio */
 }
 
-/* Scrollbar personalizada (opcional pero recomendada) */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #0f172a; 
-}
-::-webkit-scrollbar-thumb {
-  background: #334155; 
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #475569; 
+/* Utilidades para Tailwind */
+@layer utilities {
+  .bg-background { background-color: var(--background); }
+  .bg-card { background-color: var(--card); }
+  .bg-muted { background-color: var(--muted); }
+  .bg-primary { background-color: var(--primary); }
+  
+  .text-foreground { color: var(--foreground); }
+  .text-card-foreground { color: var(--card-foreground); }
+  .text-muted-foreground { color: var(--muted-foreground); }
+  .text-primary-foreground { color: var(--primary-foreground); }
+  .text-primary { color: var(--primary); }
+
+  .border-border { border-color: var(--border); }
 }
 
 /* ============================= */

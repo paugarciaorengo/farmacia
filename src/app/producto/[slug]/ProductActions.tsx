@@ -39,7 +39,8 @@ export default function ProductActions({ product }: ProductActionsProps) {
   // Si no hay stock, mostramos botón deshabilitado
   if (product.stock <= 0) {
     return (
-      <button disabled className="w-full bg-slate-800 text-slate-500 font-bold py-4 rounded-xl cursor-not-allowed">
+      // 🎨 CAMBIO: Usamos 'bg-muted' y 'text-muted-foreground' para estado inactivo
+      <button disabled className="w-full bg-muted text-muted-foreground border border-border font-bold py-4 rounded-xl cursor-not-allowed">
         Producto Agotado
       </button>
     )
@@ -48,17 +49,18 @@ export default function ProductActions({ product }: ProductActionsProps) {
   return (
     <div className="flex flex-col sm:flex-row gap-4">
       {/* Selector de Cantidad */}
-      <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl h-14 w-full sm:w-auto">
+      {/* 🎨 CAMBIO: bg-card y border-border para adaptarse al tema */}
+      <div className="flex items-center bg-card border border-border rounded-xl h-14 w-full sm:w-auto shadow-sm">
         <button 
           onClick={() => setQuantity(Math.max(1, quantity - 1))}
-          className="px-4 h-full text-slate-400 hover:text-white transition-colors"
+          className="px-4 h-full text-muted-foreground hover:text-primary transition-colors"
         >
           <Minus size={18} />
         </button>
-        <span className="flex-1 w-12 text-center font-bold text-lg text-white">{quantity}</span>
+        <span className="flex-1 w-12 text-center font-bold text-lg text-foreground">{quantity}</span>
         <button 
           onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-          className="px-4 h-full text-slate-400 hover:text-white transition-colors"
+          className="px-4 h-full text-muted-foreground hover:text-primary transition-colors"
         >
           <Plus size={18} />
         </button>
@@ -67,10 +69,11 @@ export default function ProductActions({ product }: ProductActionsProps) {
       {/* Botón Añadir */}
       <button
         onClick={handleAddToCart}
-        className={`flex-1 flex items-center justify-center gap-2 font-bold text-lg py-3 px-6 rounded-xl transition-all duration-300 ${
+        // 🎨 CAMBIO: bg-primary, text-primary-foreground y shadow-primary
+        className={`flex-1 flex items-center justify-center gap-2 font-bold text-lg py-3 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-primary/20 ${
           isAdded 
-            ? 'bg-emerald-500 text-slate-950 scale-95' 
-            : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 active:scale-95'
+            ? 'bg-primary text-primary-foreground scale-95' 
+            : 'bg-primary hover:opacity-90 text-primary-foreground active:scale-95'
         }`}
       >
         {isAdded ? (

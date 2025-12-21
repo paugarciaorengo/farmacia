@@ -4,6 +4,8 @@ import "./globals.css";
 import MaskLayout from "./components/MaskLayout";
 import NavBar from "./components/NavBar"; 
 import CartSidebar from "@/src/features/cart/CartSidebar"; 
+import Footer from "./components/Footer";
+import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,18 +28,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <MaskLayout>
-          {/* ✅ 2. Añadir el componente aquí para que esté disponible en todas las páginas */}
-          <CartSidebar /> 
-          
-          {/* La NavBar forma parte del contenido que se revela con la máscara */}
-          <NavBar />
-          <main>{children}</main>
-        </MaskLayout>
+        <Providers>
+          <MaskLayout>
+            <CartSidebar /> 
+
+            {/* ✅ 2. Contenedor Flex para "Sticky Footer" */}
+            <div className="flex flex-col min-h-screen">
+
+              <NavBar />
+
+              {/* ✅ 3. El main crece (flex-grow) para empujar el footer abajo */}
+              <main className="flex-grow">
+                {children}
+              </main>
+
+              <Footer />
+
+            </div>
+          </MaskLayout>
+        </Providers>
       </body>
     </html>
   );
