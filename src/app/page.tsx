@@ -59,7 +59,7 @@ export default function Home() {
             </div>
             <div>
               <h3 className="text-lg font-bold text-foreground">Recogida Express</h3>
-              <p className="text-muted-foreground">C/ Llobregós 123, BCN</p>
+              <p className="text-muted-foreground">Rambla del Carmel, 78<br/>08032 Barcelona</p>
               <Link href="/contacto" className="text-sm font-medium text-primary hover:underline mt-1 inline-block">
                 Ver mapa →
               </Link>
