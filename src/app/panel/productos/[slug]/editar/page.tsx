@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { prisma } from '@/src/lib/prisma'
 import ProductForm from '@/src/features/admin/ProductForm'
 
-// Igual que antes, definimos el tipo para el rol
+// Interfaz para evitar errores de tipo con el rol
 interface ExtendedUser {
   role?: string
 }
@@ -38,8 +38,15 @@ export default async function EditProductPage({ params }: { params: Promise<{ sl
         categories={categories} 
         initialData={{
           ...product,
+          // 👇 1. SOLUCIÓN DECIMAL: Convertimos a Number (Sobrescribe el valor del spread)
+          vatRate: Number(product.vatRate), 
+          
+          // 👇 2. SOLUCIÓN FECHAS: Convertimos las fechas a String (ISO)
+          createdAt: product.createdAt.toISOString(),
+          updatedAt: product.updatedAt.toISOString(),
+
+          // Otros campos calculados
           categoryId: product.categoryId || '',
-          // 👇 Aquí corregimos el error del parámetro 'm' tipándolo explícitamente
           media: product.media.map((m: { url: string }) => ({ url: m.url }))
         }}
       />

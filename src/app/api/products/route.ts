@@ -3,18 +3,16 @@ import { prisma } from "@/src/lib/prisma";
 import { auth } from "@/src/auth";
 import { Prisma } from "@prisma/client";
 
-// 👇 1. Definimos el tipo exacto que esperamos de la consulta
+// 👇 1. Definimos el tipo exacto que devuelve la consulta (Payload)
 type ProductWithRelations = Prisma.ProductGetPayload<{
   include: {
-    media: {
-      select: { url: true; alt: true }
-    };
+    media: { select: { url: true; alt: true } };
     lots: true;
     category: true;
   }
 }>;
 
-// 🔹 GET -> Listado público para el catálogo
+// 🔹 GET -> Listado de productos
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("search") ?? "";
@@ -56,17 +54,14 @@ export async function GET(req: NextRequest) {
       prisma.product.count({ where }),
     ]);
 
-    // 👇 2. Tipamos explícitamente 'item' y los argumentos del reduce
+    // 👇 2. Usamos el tipo 'ProductWithRelations' aquí para corregir el error de 'item'
     const withAvailability = items.map((item: ProductWithRelations) => {
+      // 👇 3. Tipamos 'acc' explícitamente como número
       const availability = item.lots.reduce(
         (acc: number, lot) => acc + lot.quantity,
         0
       );
-
-      return {
-        ...item,
-        availability,
-      };
+      return { ...item, availability };
     });
 
     return NextResponse.json({
@@ -80,30 +75,57 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 🔸 POST -> Crear producto nuevo (Panel de Admin)
+// 🔸 POST -> Crear producto (JSON + Auth)
 export async function POST(req: NextRequest) {
   const session = await auth();
-
   const user = session?.user as { role?: string } | undefined;
 
+  // Seguridad: Solo Admin/Farmacéutico
   if (!user || (user.role !== "ADMIN" && user.role !== "PHARMACIST")) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   try {
+    // Leemos el cuerpo como JSON
     const body = await req.json();
-    const { imageUrl, priceCents, ...data } = body;
+    
+    // Extraemos campos
+    const { 
+      name, 
+      slug, 
+      sku, 
+      farmaticCode, 
+      priceCents, 
+      description,
+      categoryId, 
+      imageUrl 
+    } = body;
 
+    // Validaciones
+    if (!name || !slug || !sku || !priceCents) {
+      return NextResponse.json(
+        { error: "Faltan datos obligatorios (Nombre, Slug, SKU o Precio)" }, 
+        { status: 400 }
+      );
+    }
+
+    // Creación en BD
     const product = await prisma.product.create({
       data: {
-        ...data,
+        name,
+        slug,
+        sku, 
+        farmaticCode: farmaticCode || null,
+        description: description || null,
         priceCents: Number(priceCents),
+        vatRate: 21, // Valor por defecto o añadir al formulario
         active: true,
+        categoryId: categoryId || null,
         media: imageUrl ? {
           create: {
             url: imageUrl,
             type: "IMAGE",
-            alt: data.name,
+            alt: name,
             position: 0
           }
         } : undefined
@@ -114,7 +136,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Error al crear producto:", err);
     return NextResponse.json(
-      { error: "Error al crear producto. Verifica que el Slug sea único." },
+      { error: "Error al crear. El SKU o Slug podrían estar duplicados." },
       { status: 500 }
     );
   }
