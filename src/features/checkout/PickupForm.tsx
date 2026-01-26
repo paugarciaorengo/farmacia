@@ -1,142 +1,138 @@
 'use client'
 
 import { useState } from 'react'
-import { MapPin, Clock, Phone, User, Store, CheckCircle2, CreditCard, Wallet } from 'lucide-react'
-import { useCartStore } from '@/src/store/cart-store'
 import { useRouter } from 'next/navigation'
+import { useCartStore } from '@/src/store/cart-store'
+import { placeOrderAction } from '@/src/app/actions/place-order' // 👈 La acción nueva
+import { ShoppingBag, Loader2, MapPin, AlertCircle } from 'lucide-react'
 
-type PickupFormProps = { user?: { name?: string | null; email?: string | null } }
-type PaymentMethod = 'store' | 'online'
-
-export default function PickupForm({ user }: PickupFormProps) {
+export default function PickupForm() {
   const router = useRouter()
-  const clearCart = useCartStore((state) => state.clearCart)
-  const [isLoading, setIsLoading] = useState(false)
-  const [phone, setPhone] = useState('')
-  const [notes, setNotes] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('store')
+  const { items, clearCart } = useCartStore() // Usamos el store del carrito
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handlePlaceOrder = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    clearCart()
-    const message = paymentMethod === 'online' ? "¡Pago realizado!" : "¡Reserva confirmada!"
-    alert(message)
-    router.push('/catalogo') 
-    setIsLoading(false)
+    setLoading(true)
+    setError('')
+
+    const formData = new FormData(e.currentTarget)
+    
+    // 1. Recogemos datos del cliente
+    const customerData = {
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      phone: formData.get('phone') as string,
+    }
+
+    // 2. Preparamos los items del carrito para enviarlos
+    const cartItems = items.map(i => ({
+      id: i.productId,           // ✅ Correcto: en tu store se llama productId
+      quantity: i.quantity,
+      price: i.priceCents / 100  // ✅ Correcto: pasamos de céntimos a euros para la acción
+    }))
+
+    // 3. 🚀 LLAMADA AL SERVIDOR (Aquí ocurre la magia)
+    const result = await placeOrderAction(customerData, cartItems)
+
+    if (result.error) {
+      // ❌ Si falla (ej: falta stock), mostramos el error
+      setError(result.error)
+      setLoading(false)
+    } else {
+      // ✅ Si funciona: vaciamos carrito y redirigimos
+      clearCart() 
+      router.push(`/checkout/success?orderId=${result.orderId}`)
+    }
   }
 
+  // Si el carrito está vacío, ocultamos el formulario
+  if (items.length === 0) return null
+
   return (
-    <form onSubmit={handlePlaceOrder} className="space-y-6 animate-fade-in">
-      
-      {/* SELECCIÓN DE MÉTODO DE PAGO */}
-      <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <Wallet className="text-primary" /> Método de Pago
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-border h-fit sticky top-24">
+      <div className="mb-6 border-b border-border pb-4">
+        <h2 className="text-xl font-bold flex items-center gap-2 mb-1">
+            <ShoppingBag className="text-primary" size={24} />
+            Finalizar Reserva
         </h2>
+        <p className="text-sm text-muted-foreground">
+            Reserva online, recoge y paga en mostrador.
+        </p>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => setPaymentMethod('store')}
-            className={`relative flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-              paymentMethod === 'store'
-                ? 'border-primary bg-primary/5' // Usamos opacity para que quede bien en claro y oscuro
-                : 'border-border bg-card hover:border-muted-foreground'
-            }`}
-          >
-            {paymentMethod === 'store' && (
-              <div className="absolute top-3 right-3 text-primary"><CheckCircle2 size={16} /></div>
-            )}
-            <Store size={32} className={paymentMethod === 'store' ? 'text-primary' : 'text-muted-foreground'} />
-            <div className="text-center">
-              <p className={`font-bold ${paymentMethod === 'store' ? 'text-foreground' : 'text-muted-foreground'}`}>Pagar en Farmacia</p>
-              <p className="text-xs text-muted-foreground">Efectivo o Tarjeta</p>
+      {/* 🛑 Mensaje de Error si falla el stock */}
+      {error && (
+        <div className="mb-5 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex gap-3 animate-pulse">
+            <AlertCircle className="shrink-0 mt-0.5" size={18} />
+            <div>
+              <p className="font-bold">No se pudo completar:</p>
+              <p>{error}</p>
             </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPaymentMethod('online')}
-            className={`relative flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-              paymentMethod === 'online'
-                ? 'border-primary bg-primary/5'
-                : 'border-border bg-card hover:border-muted-foreground'
-            }`}
-          >
-            {paymentMethod === 'online' && (
-              <div className="absolute top-3 right-3 text-primary"><CheckCircle2 size={16} /></div>
-            )}
-            <CreditCard size={32} className={paymentMethod === 'online' ? 'text-primary' : 'text-muted-foreground'} />
-            <div className="text-center">
-              <p className={`font-bold ${paymentMethod === 'online' ? 'text-foreground' : 'text-muted-foreground'}`}>Pago Online</p>
-              <p className="text-xs text-muted-foreground">Tarjeta Crédito / Débito</p>
-            </div>
-          </button>
         </div>
-      </section>
+      )}
 
-      {/* INFORMACIÓN DE RECOGIDA */}
-      <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <Store className="text-primary" /> Punto de Recogida
-        </h2>
-        
-        <div className="bg-muted/50 border border-border rounded-xl p-4 flex gap-4 items-start">
-          <div className="bg-primary p-2 rounded-lg text-primary-foreground shrink-0">
-            <MapPin size={24} />
-          </div>
-          <div>
-            <h3 className="font-bold text-foreground">Farmacia del Carmel</h3>
-            <p className="text-muted-foreground text-sm mt-1">Carrer del Llobregós, 123</p>
-            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock size={14} /> <span>Abierto hoy hasta las 21:00</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* TUS DATOS */}
-      <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <User className="text-primary" /> Tus Datos
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-muted-foreground uppercase">Nombre</label>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+            <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Nombre Completo</label>
             <input 
-              type="text" 
-              defaultValue={user?.name || ''} 
-              readOnly={!!user?.name}
-              className="w-full bg-background border border-border rounded-lg px-4 py-3 text-foreground focus:border-primary outline-none disabled:opacity-50"
+                name="name" 
+                required 
+                placeholder="Ej: Paula García" 
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 outline-none transition-all"
             />
-          </div>
-          <div className="space-y-2">
-             <label className="text-xs font-bold text-muted-foreground uppercase">Email</label>
-             <input type="email" defaultValue={user?.email || ''} readOnly={!!user?.email} className="w-full bg-background border border-border rounded-lg px-4 py-3 text-foreground focus:border-primary outline-none disabled:opacity-50" />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-xs font-bold text-muted-foreground uppercase">Teléfono</label>
-            <div className="relative">
-              <Phone size={18} className="absolute left-3 top-3.5 text-muted-foreground" />
-              <input 
-                type="tel" required placeholder="600 000 000" value={phone} onChange={(e) => setPhone(e.target.value)}
-                className="w-full bg-background border border-border rounded-lg pl-10 pr-4 py-3 text-foreground focus:border-primary outline-none"
-              />
-            </div>
-          </div>
         </div>
-      </section>
 
-      <button 
-        type="submit" 
-        disabled={isLoading}
-        className="w-full bg-primary hover:opacity-90 text-primary-foreground font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.99] flex items-center justify-center gap-2 text-lg disabled:opacity-50"
-      >
-        {isLoading ? "Procesando..." : paymentMethod === 'online' ? "Pagar y Finalizar" : "Confirmar Reserva"}
-      </button>
-    </form>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Móvil</label>
+                <input 
+                    name="phone" 
+                    required 
+                    type="tel"
+                    placeholder="600 000 000" 
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                />
+            </div>
+            <div>
+                <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Email</label>
+                <input 
+                    name="email" 
+                    required 
+                    type="email"
+                    placeholder="hola@email.com" 
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                />
+            </div>
+        </div>
+
+        {/* ℹ️ Información de recogida */}
+        <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex gap-3 items-start text-sm text-blue-800 mt-2">
+            <MapPin className="shrink-0 mt-0.5 text-blue-600" size={18} />
+            <p className="text-xs">
+                Recogida en: <span className="font-bold">Farmacia Central</span>. 
+                <br />
+                Te avisaremos por email cuando esté listo.
+            </p>
+        </div>
+
+        <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full mt-4 bg-primary hover:bg-primary/90 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-[0.98]"
+        >
+            {loading ? (
+                <>
+                    <Loader2 className="animate-spin" /> Procesando...
+                </>
+            ) : (
+                <>
+                    Confirmar Reserva
+                </>
+            )}
+        </button>
+      </form>
+    </div>
   )
 }
