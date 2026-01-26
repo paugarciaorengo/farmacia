@@ -1,3 +1,5 @@
+// src/app/layout.tsx
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -43,8 +45,9 @@ export default function RootLayout({
 
               <NavBar />
 
-              {/* ✅ 3. El main crece (flex-grow) para empujar el footer abajo */}
-              <main className="flex-grow">
+              {/* ✅ 3. CAMBIO IMPORTANTE AQUI 👇 */}
+              {/* Añadimos pt-24 (padding-top) para que la barra no tape el título */}
+              <main className="flex-grow pt-24 md:pt-15">
                 {children}
               </main>
 
