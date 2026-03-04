@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { auth } from '@/src/auth'
 import { prisma } from '@/src/lib/prisma'
-import { Package, ShoppingBag, BarChart3, ArrowRight } from 'lucide-react'
+import { Package, ShoppingBag, BarChart3, ArrowRight, ClipboardList } from 'lucide-react'
 
 export default async function PanelPage() {
   const session = await auth()
@@ -24,11 +24,13 @@ export default async function PanelPage() {
     redirect('/catalogo')
   }
 
-  // Obtenemos un dato real para que el panel se sienta "vivo"
-  const productCount = await prisma.product.count()
+  // Obtenemos datos reales para que el panel se sienta "vivo"
+  const [productCount, orderCount] = await Promise.all([
+    prisma.product.count(),
+    prisma.order.count() // Contador de pedidos para la nueva tarjeta activa
+  ])
 
   return (
-    // 🎨 bg-background: Se adapta al tema (blanco azulado o negro)
     <main className="min-h-screen bg-background p-6 md:p-12 animate-fade-in">
       <div className="max-w-6xl mx-auto space-y-8">
 
@@ -49,7 +51,6 @@ export default async function PanelPage() {
             href="/panel/productos"
             className="group relative overflow-hidden rounded-2xl bg-card border border-border p-6 transition-all hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10"
           >
-            {/* Icono de fondo decorativo */}
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
               <Package size={80} className="text-primary" />
             </div>
@@ -73,22 +74,33 @@ export default async function PanelPage() {
             </div>
           </Link>
 
-          {/* Tarjeta 2: Pedidos (PLACEHOLDER) */}
-          <div className="group relative overflow-hidden rounded-2xl bg-card/60 border border-border p-6 opacity-75 cursor-not-allowed">
-             <div className="absolute top-0 right-0 p-4 opacity-5">
-              <ShoppingBag size={80} className="text-muted-foreground" />
+          {/* Tarjeta 2: Pedidos Click & Collect (ACTIVA) */}
+          <Link
+            href="/panel/pedidos"
+            className="group relative overflow-hidden rounded-2xl bg-card border border-border p-6 transition-all hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <ClipboardList size={80} className="text-primary" />
             </div>
-            <div className="mb-4 bg-muted w-12 h-12 rounded-xl flex items-center justify-center text-muted-foreground">
+
+            <div className="mb-4 bg-primary/10 w-12 h-12 rounded-xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
               <ShoppingBag size={24} />
             </div>
-            <h2 className="text-lg font-bold text-muted-foreground mb-2">Pedidos Click & Collect</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Gestión de reservas y preparación de pedidos para recogida en tienda.
+
+            <h2 className="text-lg font-bold text-foreground mb-2">Pedidos Click & Collect</h2>
+            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+              Gestión de reservas y preparación de pedidos para recogida en tienda física.
             </p>
-            <span className="inline-block px-2 py-1 bg-muted text-[10px] uppercase font-bold text-muted-foreground rounded border border-border">
-              Próximamente
-            </span>
-          </div>
+
+            <div className="flex items-center justify-between mt-auto">
+              <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded border border-border">
+                {orderCount} pedidos
+              </span>
+              <span className="text-primary text-sm font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                Acceder <ArrowRight size={16} />
+              </span>
+            </div>
+          </Link>
 
           {/* Tarjeta 3: Analítica (PLACEHOLDER) */}
           <div className="group relative overflow-hidden rounded-2xl bg-card/60 border border-border p-6 opacity-75 cursor-not-allowed">
