@@ -12,7 +12,8 @@ export default async function PerfilPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { name: true, email: true, role: true }
+    // 👇 AÑADIDO: phone: true para traer el teléfono de la base de datos
+    select: { name: true, email: true, role: true, phone: true }
   })
 
   if (!user) redirect("/login")
@@ -91,7 +92,7 @@ export default async function PerfilPage() {
                   <input 
                     type="email" 
                     disabled 
-                    value={user.email} 
+                    value={user.email || ''} 
                     className="w-full rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground cursor-not-allowed"
                   />
                   <p className="text-[10px] text-muted-foreground mt-2">El email no se puede cambiar desde aquí.</p>
@@ -104,6 +105,18 @@ export default async function PerfilPage() {
                     name="name"
                     defaultValue={user.name || ''} 
                     placeholder="Ej: Juan Pérez"
+                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                  />
+                </div>
+
+                {/* 👇 AÑADIDO: Campo de teléfono 👇 */}
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">Teléfono de Contacto</label>
+                  <input 
+                    type="tel" 
+                    name="phone"
+                    defaultValue={user.phone || ''} 
+                    placeholder="Ej: 600 123 456"
                     className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                   />
                 </div>

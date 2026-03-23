@@ -29,6 +29,7 @@ model User {
   passwordHash String?
   name         String?
   role         Role      @default(CUSTOMER)
+  phone         String?
   orders       Order[]
   addresses    Address[]
   createdAt    DateTime  @default(now())
