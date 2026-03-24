@@ -102,22 +102,30 @@ export default async function PanelPage() {
             </div>
           </Link>
 
-          {/* Tarjeta 3: Analítica (PLACEHOLDER) */}
-          <div className="group relative overflow-hidden rounded-2xl bg-card/60 border border-border p-6 opacity-75 cursor-not-allowed">
-            <div className="absolute top-0 right-0 p-4 opacity-5">
-              <BarChart3 size={80} className="text-muted-foreground" />
+          {/* Tarjeta 3: Analítica y Ventas (ACTIVA) */}
+          <Link
+            href="/panel/analitica"
+            className="group relative overflow-hidden rounded-2xl bg-card border border-border p-6 transition-all hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <BarChart3 size={80} className="text-primary" />
             </div>
-             <div className="mb-4 bg-muted w-12 h-12 rounded-xl flex items-center justify-center text-muted-foreground">
+             <div className="mb-4 bg-primary/10 w-12 h-12 rounded-xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
               <BarChart3 size={24} />
             </div>
-            <h2 className="text-lg font-bold text-muted-foreground mb-2">Analítica y Ventas</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Informes de ventas, productos más vendidos y rotación de stock.
+            <h2 className="text-lg font-bold text-foreground mb-2">Analítica y Ventas</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Informes de ventas, ingresos totales y ranking de productos con más rotación.
             </p>
-            <span className="inline-block px-2 py-1 bg-muted text-[10px] uppercase font-bold text-muted-foreground rounded border border-border">
-              En desarrollo
-            </span>
-          </div>
+            <div className="flex items-center justify-between mt-auto">
+              <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded border border-border">
+                Dashboard
+              </span>
+              <span className="text-primary text-sm font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                Acceder <ArrowRight size={16} />
+              </span>
+            </div>
+          </Link>
 
         </section>
       </div>
