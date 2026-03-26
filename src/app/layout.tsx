@@ -9,7 +9,13 @@ import CartSidebar from "@/src/features/cart/CartSidebar";
 import Footer from "./components/Footer";
 import { Providers } from "./providers";
 import ChristmasSnow from "./components/ChristmasSnow";
-import Chatbot from "@/src/components/Chatbot";
+
+// 👇 1. Importamos dynamic de next/dynamic
+import dynamic from "next/dynamic";
+
+// 👇 2. Importamos el Chatbot dinámicamente
+const Chatbot = dynamic(() => import("@/src/components/Chatbot"), {
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -50,7 +56,7 @@ export default function RootLayout({
               {/* Añadimos pt-24 (padding-top) para que la barra no tape el título */}
               <main className="flex-grow pt-24 md:pt-15">
                 {children}
-                <Chatbot /> {/* Agregamos el chatbot aquí para que esté disponible en todas las páginas */}
+                <Chatbot /> {/* Agregamos el chatbot aquí, ahora es dinámico y no frena la web */}
               </main>
 
               <Footer />

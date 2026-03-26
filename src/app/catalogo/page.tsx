@@ -1,6 +1,7 @@
 import { prisma } from '@/src/lib/prisma';
 import { ProductCard } from '@/src/app/components/ProductCard'; 
 import { Search, Filter } from 'lucide-react';
+import { Suspense } from 'react'; // AÑADIDO: Importamos Suspense
 
 const base = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
@@ -25,51 +26,52 @@ type ProductItem = {
   category?: { id: string; name: string } | null;
 };
 
-export default async function CatalogoPage({
-  searchParams,
-}: CatalogPageProps) {
-  const sp = await searchParams;
+// ==========================================
+// 1. COMPONENTE ESQUELETO (Muestra mientras carga)
+// ==========================================
+function GridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {[...Array(8)].map((_, i) => (
+        <div key={i} className="h-[400px] bg-card rounded-2xl border border-border animate-pulse p-4 flex flex-col">
+          <div className="h-48 bg-muted rounded-xl mb-4 w-full"></div>
+          <div className="h-6 bg-muted rounded w-3/4 mb-2"></div>
+          <div className="h-4 bg-muted rounded w-1/2 mb-4"></div>
+          <div className="mt-auto h-12 bg-muted rounded-xl w-full"></div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  const search = sp.search ?? "";
-  const page = Number(sp.page ?? "1");
-  const noRx = sp.noRx === "1" || sp.noRx === "true";
-  const categoryId = sp.categoryId ?? "";
-
-  const categories = await prisma.category.findMany({
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
-
-  const qs = new URLSearchParams();
-  if (search) qs.set("search", search);
-  qs.set("page", page.toString());
-  if (noRx) qs.set("noRx", "1");
-  if (categoryId) qs.set("categoryId", categoryId);
-
-  const res = await fetch(`${base}/api/products?${qs.toString()}`, {
+// ==========================================
+// 2. COMPONENTE ASÍNCRONO (La consulta pesada)
+// ==========================================
+async function ProductGrid({ 
+  queryString, 
+  search, 
+  noRx, 
+  categoryId 
+}: { 
+  queryString: string;
+  search: string;
+  noRx: boolean;
+  categoryId: string;
+}) {
+  const res = await fetch(`${base}/api/products?${queryString}`, {
     cache: "no-store",
   });
 
   if (!res.ok) {
     return (
-      // 🎨 CORRECCIÓN AQUÍ TAMBIÉN: Añadimos 'pt-24' para el mensaje de error
-      <main className="min-h-screen bg-background p-6 pt-24 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-foreground">Error del sistema</h1>
-          <p className="text-red-500">
-            No se pudieron cargar los productos (código {res.status})
-          </p>
-        </div>
-      </main>
+      <div className="text-center space-y-4 py-20 bg-red-500/10 rounded-2xl border border-red-500/20">
+        <h2 className="text-xl font-bold text-red-500">Error del sistema</h2>
+        <p className="text-muted-foreground">No se pudieron cargar los productos (código {res.status})</p>
+      </div>
     );
   }
 
-  const {
-    items,
-    total,
-    page: currentPage,
-    pageSize,
-  }: {
+  const { items, total, page: currentPage, pageSize }: {
     items: ProductItem[];
     total: number;
     page: number;
@@ -89,9 +91,91 @@ export default async function CatalogoPage({
   };
 
   return (
-    // 🎨 CORRECCIÓN PRINCIPAL:
-    // Cambiamos 'p-6 md:p-12' por 'p-6 md:p-12 pt-28 md:pt-32'
-    // Esto empuja todo el contenido hacia abajo para salvar la NavBar fija.
+    <>
+      {/* Grid de productos */}
+      {items.length === 0 ? (
+        <div className="text-center py-20 bg-card rounded-2xl border border-border border-dashed">
+          <p className="text-muted-foreground text-lg">No se han encontrado productos con esos filtros.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {items.map((p) => (
+            <ProductCard
+              key={p.id}
+              product={{
+                id: p.id,
+                slug: p.slug,
+                name: p.name,
+                price: p.priceCents / 100, 
+                stock: p.availability,
+                imageUrl: p.media?.[0]?.url,
+                description: p.isPrescription ? "⚠️ Medicamento sujeto a prescripción médica" : "Venta libre - Sin receta",
+                category: p.category,
+                isPrescription: p.isPrescription
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 text-sm mt-12">
+          <a
+            href={makePageUrl(Math.max(1, currentPage - 1))}
+            className={`px-4 py-2 rounded-lg border transition-all ${
+              currentPage === 1
+                ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50"
+                : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card"
+            }`}
+          >
+            ← Anterior
+          </a>
+          <span className="text-muted-foreground font-medium">
+            Página <span className="text-foreground font-bold">{currentPage}</span> de {totalPages}
+          </span>
+          <a
+            href={makePageUrl(Math.min(totalPages, currentPage + 1))}
+            className={`px-4 py-2 rounded-lg border transition-all ${
+              currentPage === totalPages
+                ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50"
+                : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card"
+            }`}
+          >
+            Siguiente →
+          </a>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ==========================================
+// 3. PÁGINA PRINCIPAL (Carga instantánea)
+// ==========================================
+export default async function CatalogoPage({
+  searchParams,
+}: CatalogPageProps) {
+  const sp = await searchParams;
+
+  const search = sp.search ?? "";
+  const page = Number(sp.page ?? "1");
+  const noRx = sp.noRx === "1" || sp.noRx === "true";
+  const categoryId = sp.categoryId ?? "";
+
+  // Prisma carga las categorías rapidísimo, no bloquea casi nada
+  const categories = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+
+  const qs = new URLSearchParams();
+  if (search) qs.set("search", search);
+  qs.set("page", page.toString());
+  if (noRx) qs.set("noRx", "1");
+  if (categoryId) qs.set("categoryId", categoryId);
+
+  return (
     <main className="min-h-screen bg-background p-6 md:p-12 pt-28 md:pt-32">
       <div className="max-w-7xl mx-auto space-y-8">
         
@@ -107,7 +191,6 @@ export default async function CatalogoPage({
           className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-6"
         >
           <div className="flex flex-col md:flex-row gap-4">
-            {/* Input Búsqueda */}
             <div className="flex-1 space-y-2">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Search size={14} /> Buscar
@@ -121,7 +204,6 @@ export default async function CatalogoPage({
               />
             </div>
 
-            {/* Select Categoría */}
             <div className="w-full md:w-64 space-y-2">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Filter size={14} /> Categoría
@@ -178,60 +260,17 @@ export default async function CatalogoPage({
           </div>
         </form>
 
-        {/* Grid de productos */}
-        {items.length === 0 ? (
-          <div className="text-center py-20 bg-card rounded-2xl border border-border border-dashed">
-            <p className="text-muted-foreground text-lg">No se han encontrado productos con esos filtros.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {items.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={{
-                  id: p.id,
-                  slug: p.slug,
-                  name: p.name,
-                  price: p.priceCents / 100, 
-                  stock: p.availability,
-                  imageUrl: p.media?.[0]?.url,
-                  description: p.isPrescription ? "⚠️ Medicamento sujeto a prescripción médica" : "Venta libre - Sin receta",
-                  category: p.category,
-                  isPrescription: p.isPrescription
-                }}
-              />
-            ))}
-          </div>
-        )}
+        {/* 👇 EL MAGNÍFICO SUSPENSE 👇 */}
+        {/* Usamos qs.toString() como key para que React vuelva a mostrar el esqueleto si cambias de página o aplicas un filtro */}
+        <Suspense key={qs.toString()} fallback={<GridSkeleton />}>
+          <ProductGrid 
+            queryString={qs.toString()} 
+            search={search}
+            noRx={noRx}
+            categoryId={categoryId}
+          />
+        </Suspense>
 
-        {/* Paginación */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-4 text-sm mt-12">
-            <a
-              href={makePageUrl(Math.max(1, currentPage - 1))}
-              className={`px-4 py-2 rounded-lg border transition-all ${
-                currentPage === 1
-                  ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50"
-                  : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card"
-              }`}
-            >
-              ← Anterior
-            </a>
-            <span className="text-muted-foreground font-medium">
-              Página <span className="text-foreground font-bold">{currentPage}</span> de {totalPages}
-            </span>
-            <a
-              href={makePageUrl(Math.min(totalPages, currentPage + 1))}
-              className={`px-4 py-2 rounded-lg border transition-all ${
-                currentPage === totalPages
-                  ? "pointer-events-none border-border text-muted-foreground/50 bg-muted/50"
-                  : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-card"
-              }`}
-            >
-              Siguiente →
-            </a>
-          </div>
-        )}
       </div>
     </main>
   );
