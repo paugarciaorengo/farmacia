@@ -2,8 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
 import { auth } from "@/src/auth";
 import { Prisma } from "@prisma/client";
+import { z } from "zod"; // 1. Importamos Zod
 
-// 👇 1. Definimos el tipo exacto que devuelve la consulta (Payload)
+// 👇 2. Esquema de validación estricto con Zod para el POST
+const productCreateSchema = z.object({
+  name: z.string().min(2, "El nombre es demasiado corto"),
+  slug: z.string().min(2, "El slug es obligatorio"),
+  sku: z.string().min(1, "El SKU es obligatorio"),
+  farmaticCode: z.string().optional().nullable(),
+  priceCents: z.coerce.number().int().positive("El precio debe ser un número positivo"),
+  description: z.string().optional().nullable(),
+  categoryId: z.string().optional().nullable(),
+  imageUrl: z.string().url("La URL de la imagen no es válida").optional().or(z.literal("")),
+  isPrescription: z.boolean().default(false),
+});
+
+// 👇 3. Definimos el tipo exacto que devuelve la consulta (Payload) para el listado
 type ProductWithRelations = Prisma.ProductGetPayload<{
   include: {
     media: { select: { url: true; alt: true } };
@@ -12,7 +26,7 @@ type ProductWithRelations = Prisma.ProductGetPayload<{
   }
 }>;
 
-// 🔹 GET -> Listado de productos
+// 🔹 GET -> Listado de productos (Optimizado)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("search") ?? "";
@@ -54,9 +68,7 @@ export async function GET(req: NextRequest) {
       prisma.product.count({ where }),
     ]);
 
-    // 👇 2. Usamos el tipo 'ProductWithRelations' aquí para corregir el error de 'item'
     const withAvailability = items.map((item: ProductWithRelations) => {
-      // 👇 3. Tipamos 'acc' explícitamente como número
       const availability = item.lots.reduce(
         (acc: number, lot) => acc + lot.quantity,
         0
@@ -75,7 +87,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 🔸 POST -> Crear producto (JSON + Auth)
+// 🔸 POST -> Crear producto (JSON + Auth + Zod Validation)
 export async function POST(req: NextRequest) {
   const session = await auth();
   const user = session?.user as { role?: string } | undefined;
@@ -86,46 +98,39 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Leemos el cuerpo como JSON
     const body = await req.json();
     
-    // Extraemos campos
-    const { 
-      name, 
-      slug, 
-      sku, 
-      farmaticCode, 
-      priceCents, 
-      description,
-      categoryId, 
-      imageUrl 
-    } = body;
+    // 👇 4. Validamos el body con Zod
+    const result = productCreateSchema.safeParse(body);
 
-    // Validaciones
-    if (!name || !slug || !sku || !priceCents) {
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Faltan datos obligatorios (Nombre, Slug, SKU o Precio)" }, 
+        { error: "Datos inválidos", details: result.error.format() }, 
         { status: 400 }
       );
     }
 
+    // Datos ya validados y tipados correctamente por Zod
+    const data = result.data;
+
     // Creación en BD
     const product = await prisma.product.create({
       data: {
-        name,
-        slug,
-        sku, 
-        farmaticCode: farmaticCode || null,
-        description: description || null,
-        priceCents: Number(priceCents),
-        vatRate: 21, // Valor por defecto o añadir al formulario
+        name: data.name,
+        slug: data.slug,
+        sku: data.sku, 
+        farmaticCode: data.farmaticCode,
+        description: data.description,
+        priceCents: data.priceCents,
+        isPrescription: data.isPrescription,
+        vatRate: 21, 
         active: true,
-        categoryId: categoryId || null,
-        media: imageUrl ? {
+        categoryId: data.categoryId,
+        media: data.imageUrl ? {
           create: {
-            url: imageUrl,
+            url: data.imageUrl,
             type: "IMAGE",
-            alt: name,
+            alt: data.name,
             position: 0
           }
         } : undefined
@@ -136,7 +141,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Error al crear producto:", err);
     return NextResponse.json(
-      { error: "Error al crear. El SKU o Slug podrían estar duplicados." },
+      { error: "Error al crear. Es posible que el SKU o Slug ya existan." },
       { status: 500 }
     );
   }
